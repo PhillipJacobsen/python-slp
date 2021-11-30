@@ -122,6 +122,16 @@ onchain token|free token + circulating token - burned token - offchain token
 
 **Accounting**
 
+Let's consider events below:
+
+  - `DCytPA7wnA` creates and owns contract `aabe4d0aee`
+  - `DCytPA7wnA` mints `85` token
+  - `DCytPA7wnA` sends `10.5` token to `DMzBk9WdM3`
+  - `DCytPA7wnA` burns `27` token
+  - `DCytPA7wnA` cross exchanges `20` token with another SLP blockchain
+  - another SLP blockchain cross exchanges back `9.5` token to `DJDyG6SVf`
+  - `DJDyG6SVf` sends `9.5` token to `DCytPA7wnA`
+
 timestamp|tx|tokenId|nok|tp|de|sy|na|du|qt|no|pa|mi
 -|-|-|-|-|-|-|-|-|-|-|-|-
 1638264520|_txId_|||GENESIS|2|TTK|Test Token||150000||True|True
@@ -171,30 +181,7 @@ SELECT address, SUM(exchanged, crossed, minted, burned) FROM accountings
 WHERE tokenId='aabe4d0aee';
 ```
 
-<!-- # Journal
-
-Let's consider events below:
-
-  - `DCytPd4qzrMTVCz1q3398yA9Md1SuA7wnA` creates and owns contract `aabe476e47b1cc79e7868ddbce0d0aee`
-  - `DCytPd4qzrMTVCz1q3398yA9Md1SuA7wnA` mints `85` token
-  - `DCytPd4qzrMTVCz1q3398yA9Md1SuA7wnA` sends `10.5` token to `DMzBk3g7ThVQPYmpYDTHBHiqYuTtZ9WdM3`
-  - `DCytPd4qzrMTVCz1q3398yA9Md1SuA7wnA` burns `27` token
-  - `DCytPd4qzrMTVCz1q3398yA9Md1SuA7wnA` cross exchanges `20` token with another SLP blockchain
-  - another SLP blockchain cross exchanges back `9.5` token to `DJDypKeHGeLHNdHdDThsgVQhFHicUG6SVf`
-  - `DJDypKeHGeLHNdHdDThsgVQhFHicUG6SVf` sends `9.5` token to `DCytPd4qzrMTVCz1q3398yA9Md1SuA7wnA`
-
-**Records**
-
-timestamp|tx|tokenId|nok|tp|de|sy|na|du|qt|no|pa|mi
--|-|-|-|-|-|-|-|-|-|-|-|-
-1638264520|_blockchainTxId_|||GENESIS|2|TTK|Test Token||150000||True|True
-1638265720|_blockchainTxId_|aabe476e47b1cc79e7868ddbce0d0aee||MINT|||||85.00
-**1638265815**|**blockchainTxId**|**aabe476e47b1cc79e7868ddbce0d0aee**||**SEND**|||||**10.50**
-1638265973|_blockchainTxId_|aabe476e47b1cc79e7868ddbce0d0aee||BURN|||||27.00
-1638266083|_blockchainTxId_|aabe476e47b1cc79e7868ddbce0d0aee||CCXO|||||20.00|_altBlockchainAddress_
-1638267582|_alt_BlockchainTxId_|aabe476e47b1cc79e7868ddbce0d0aee||CCXI|||||9.5|_DJDypKeHGeLHNdHdDThsgVQhFHicUG6SVf_
-**1638267817**|**blockchainTxId**|**aabe476e47b1cc79e7868ddbce0d0aee**||**SEND**|||||**9.5**
-
+<!-- 
 **Contract**:
 
 Unique and immutable line per contract.
@@ -226,45 +213,7 @@ timestamp|tokenId|address|exchanged|crossed|minted|burned
 1638267582|aabe476e47b1cc79e7868ddbce0d0aee|DJDypKeHGeLHNdHdDThsgVQhFHicUG6SVf||9.50
 **1638267817**|**aabe476e47b1cc79e7868ddbce0d0aee**|**DJDypKeHGeLHNdHdDThsgVQhFHicUG6SVf**|**-9.50**
 **1638267817**|**aabe476e47b1cc79e7868ddbce0d0aee**|**DCytPd4qzrMTVCz1q3398yA9Md1SuA7wnA**|**9,50**
-
-## Journal state
-
-Even if SQL allow fast computation on stored data, it is interesting to compute a database state on node start and increment it on each contract execution.
-
-**Supply state**:
-tokenId|owner|free|circulating|paused
--|-|-|-|-
-
-**User state**:
-address|tokenId|balance|frozen|authmeta
--|-|-|-|-
-
-## SQL glimpse
-
-**Free token**:
-```SQL
-SELECT SUM(exchanged, crossed, minted, burned) FROM accountings
-WHERE address IN (
-    SELECT address FROM owners WHERE tokenId='aabe476e47b1cc79e7868ddbce0d0aee'
-) AND tokenId='aabe476e47b1cc79e7868ddbce0d0aee';
-```
-**Circulating token**:
-```SQL
-SELECT SUM(exchanged, crossed) FROM accountings
-WHERE address NOT IN (
-    SELECT address FROM owners WHERE tokenId='aabe476e47b1cc79e7868ddbce0d0aee'
-) AND tokenId='aabe476e47b1cc79e7868ddbce0d0aee';
-```
-**Available token**:
-```SQL
-SELECT SUM(minted, burned, crossed) FROM accountings
-WHERE tokenId='aabe476e47b1cc79e7868ddbce0d0aee';
-```
-**Balances**:
-```SQL
-SELECT address, SUM(exchanged, crossed, minted, burned) FROM accountings
-WHERE tokenId='aabe476e47b1cc79e7868ddbce0d0aee';
-``` -->
+-->
 
 # Node concensus
 
