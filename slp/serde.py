@@ -10,24 +10,24 @@ import struct
 import binascii
 
 # REGEXP for validation, can be used for webhook subscription
-SLP = re.compile("^(slp[1-9]{1})://(.*)$")
+SLP = re.compile("^(slp[0-9]{1})://(.*)$")
 
 # from https://github.com/Qredit/qslp
 TB = {
-    "GENESIS": 0,      # - Create a new token contract
-    "BURN": 1,         # - Destroy/Burn tokens from a contract
-    "MINT": 2,         # - Create/Mint tokens into a contract
-    "SEND": 3,         # - Send tokens from sender address to recipient address
-    "PAUSE": 4,        # - Pause the contract
-    "RESUME": 5,       # - Resume the contract
-    "NEWOWNER": 6,     # - Change the owner of the contract
-    "AUTHMETA": 7,     # - Authorize an address to add meta data
-    "ADDMETA": 8,      # - Add meta data to a contract
-    "VOIDMETA": 9,     # - Mark a previously added meta data as void
-    "REVOKEMETA": 10,  # - Revoke authorization to add meta data
-    "CLONE": 11,       # - Create new token by cloning contract information
-    "FREEZE": 12,      # - Freeze balance for Token @ Address
-    "UNFREEZE": 13,    # - UnFreeze balance for Token @ Address
+  "GENESIS": 0,      # - Create a new token contract
+  "BURN": 1,         # - Destroy/Burn tokens from a contract
+  "MINT": 2,         # - Create/Mint tokens into a contract
+  "SEND": 3,         # - Send tokens from sender address to recipient address
+  "PAUSE": 4,        # - Pause the contract
+  "RESUME": 5,       # - Resume the contract
+  "NEWOWNER": 6,     # - Change the owner of the contract
+  "FREEZE": 7,       # - Freeze balance for Token @ Address
+  "UNFREEZE": 8,     # - UnFreeze balance for Token @ Address
+  "AUTHMETA": 9,     # - Authorize an address to add meta data
+  "ADDMETA": 10,     # - Add meta data to a contract
+  "VOIDMETA": 11,    # - Mark a previously added meta data as void
+  "REVOKEMETA": 12,  # - Revoke authorization to add meta data
+  "CLONE": 13,       # - Create new token by cloning contract information
 }
 
 BT = dict([v, k] for k, v in TB.items())
