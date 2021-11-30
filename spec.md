@@ -1,39 +1,46 @@
+**Side Ledger Protocol**
 
-  > This is a reflexion about concensus around Side Level Protocol developped on Qredit blockchain. Purpose here is to evaluate the actions that have to be done so SLP networt could act as a side-blockchain. The porpose of this documentation is to maximize abstraction level of SLP so it can run with any blockchain where a smrtbridge can be embeded in a transaction.
+  > This is a reflexion about concensus around Side Ledger Protocol developped on Qredit blockchain. Purpose here is to evaluate the actions that have to be done so SLP networt could act as a side-blockchain. The porpose of this documentation is to maximize abstraction level of SLP so it can run with any blockchain where a smrtbridge can be embeded in a transaction.
 
 # Definitions and rationales
 
-**Smartbridge**
+## Smartbridge
 
 Serialized information stored on `vendorField` of all ARK blockchain based transaction. `vendorFIeld` was the very first way ARK considered interoperability with other blockchain before the ARK logic concept. Because of `vendorField` size limitation, contract have to be normalized and serialized so maximum information can be broadcasted within one and single transaction.
 
-**Contract**
+## Contract
 
-SLP1|ERC-20 equivalent
--|-
-GENESIS|Create a new token contract
-BURN|Destroy/Burn tokens from a contract
-MINT|Create/Mint tokens into a contract
-SEND|Send tokens from sender address to recipient address
-PAUSE|Pause the contract
-RESUME|Resume the contract
-NEWOWNER|Change the owner of the contract
-FREEZE|Freeze balance for token specific wallet
-UNFREEZE|UnFreeze balance for token wallet
+**SLP1**
+Action|#|ERC-20 equivalent
+-|-|-
+GENESIS|0|Create a new token contract
+BURN|1|Destroy/Burn tokens from a contract
+MINT|2|Create/Mint tokens into a contract
+SEND|3|Send tokens from sender address to recipient address
+PAUSE|4|Pause the contract
+RESUME|5|Resume the contract
+NEWOWNER|6|change the owner of the contract
+FREEZE|7|Freeze balance for token specific wallet
+UNFREEZE|8|UnFreeze balance for token wallet
 
-SLP2|NFT equivalent
--|-
-GENESIS|Create a new token
-PAUSE|Pause the contract and prevents any call other than RESUME
-RESUME|Resume the contract
-NEWOWNER|Change the owner of the contract
-AUTHMETA|Authorize an address to add meta data
-REVOKEMETA|Revoke authorization to add meta data
-ADDMETA|Add meta data to a contract
-VOIDMETA|Mark a previously added meta data as void
-CLONE|Create new token by cloning this contract information
+**SLP2**
+Action|#|NFT equivalent
+-|-|-
+GENESIS|0|Create a new token
+PAUSE|4|Pause the contract and prevents any call other than RESUME
+RESUME|5|Resume the contract
+NEWOWNER|6|Change the owner of the contract
+AUTHMETA|9|Authorize a wallet to add metadata
+REVOKEMETA|10|Revoke authorization to add metadata
+ADDMETA|11|Add metadata to a contract
+VOIDMETA|12|Mark a previously added metadata as void
+CLONE|13|Create new token by cloning this contract information
 
-**Field normalization**
+## Contract fields and values
+
+An input inside a contract is described with one action type and parameters. Because smartbridge size is limited (256 chars), type action and parameters name have to be reduced:
+
+**Fileds**
 
 name|description|type
 -|-|-
@@ -53,17 +60,41 @@ dt|data|string
 wt|blockchain wallet address|string
 pk|blockchain public key|hexadecimal
 
-**Journal**
+Human readable representation of contract inputs is the well known JSON structure (135 chars):
 
-Database containing the deserialized smartbridge history.
+```json
+{"SLP1": {"tp":"GENESIS","de":8,"qt":100000,"sy":"TEST","na":"Token name","du":"https://test.com","no":"notes","pa":false,"mi":false}}
+```
+
+More advanced way is serialized one (80 chars):
+
+```python
+'slp1://0008a0860100000000000000\x04TEST\nToken name\x10https://test.com\x05notes'
+```
+
+**Metadata**
+
+Metadata are usefull to add specific token informations or to diferenciate NFT collections. It is also generally represented as a JSON structure (115 chars):
+
+```json
+{"name":"arky logo","type":"image/png","url":"ipfs://bafkreigfxalrf52xm5ecn4lorfhiocw4x5cxpktnkiq3atq6jp2elktobq"}
+```
+
+But it uses even less space when serialized (101 chars):
+
+```python
+'\x04name\tarky logo\x04type\timage/png\x03urlBipfs://bafkreigfxalrf52xm5ecn4lorfhiocw4x5cxpktnkiq3atq6jp2elktobq'
+```
+
+## Journal
+
+Database containing the deserialized smartbridge history. It stores contract inputs and timestamp execution (ie block transaction timestamp) with `nok` set to `False` if success or `True` on failure. All SLP database can be rebuilt from this database.
 
 timestamp|nok|tx|tb|id|de|qt|sy|na|du|no|pa|mi|ch|dt|wt|pk
 -|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-
 -|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-
 
-It stores contract actions and timestamp execution (ie block transaction timestamp) with `nok` set to `True` if success or `False` on failure. All SLP database can be rebuilt from this database.
-
-**Token**
+## Token
 
 term|definition
 -|-
@@ -73,11 +104,10 @@ circulating token|token from all wallets except `OWNER`
 onchain token|free token + circulating token - burned token - offchain token
 offchain token|cross exchanged token
 
-
   - `OWNER` only owns free token
   - minted token + abs(burned token) + offchain token  `<=` **global supply**
 
-# Journal
+<!-- # Journal
 
 Let's consider events below:
 
@@ -170,7 +200,7 @@ WHERE tokenId='aabe476e47b1cc79e7868ddbce0d0aee';
 ```SQL
 SELECT address, SUM(exchanged, crossed, minted, burned) FROM accountings
 WHERE tokenId='aabe476e47b1cc79e7868ddbce0d0aee';
-```
+``` -->
 
 # Node concensus
 
