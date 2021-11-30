@@ -94,18 +94,82 @@ timestamp|nok|tx|tb|id|de|qt|sy|na|du|no|pa|mi|ch|dt|wt|pk
 -|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-
 -|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-
 
+**Journal state**
+
+Even if SQL allow fast computation on stored data, it is interesting to compute a database state on node start and increment it on each contract execution.
+
+_Supply state_:
+tokenId|owner|free|circulating|paused
+-|-|-|-|-
+-|-|-|-|-
+
+_User state_:
+address|tokenId|balance|frozen|authmeta
+-|-|-|-|-
+-|-|-|-|-
+
 ## Token
 
-term|definition
+Term|Definition
 -|-
 global supply|maximum allowed token for a contract
 free token|undistributed token (on `OWNER` wallet)
+minted token|token added to free supply (added to `OWNER` wallet)
+burned token|token removed from free supply (removed from  `OWNER` wallet)
 circulating token|token from all wallets except `OWNER`
-onchain token|free token + circulating token - burned token - offchain token
 offchain token|cross exchanged token
+onchain token|free token + circulating token - burned token - offchain token
 
-  - `OWNER` only owns free token
-  - minted token + abs(burned token) + offchain token  `<=` **global supply**
+**Accounting**
+
+timestamp|tx|tokenId|nok|tp|de|sy|na|du|qt|no|pa|mi
+-|-|-|-|-|-|-|-|-|-|-|-|-
+1638264520|_txId_|||GENESIS|2|TTK|Test Token||150000||True|True
+1638265720|_txId_|aabe4d0aee||MINT|||||85.00
+**1638265815**|**_txId_**|**aabe4d0aee**||**SEND**|||||**10.50**
+1638265973|_txId_|aabe4d0aee||BURN|||||27.00
+1638266083|_txId_|aabe4d0aee||CCXO|||||20.00|_altBlockchainAddress_
+1638267582|_altTxId_|aabe4d0aee||CCXI|||||9.5|_DJDypG6SVf_
+**1638267817**|**_txId_**|**aabe4d0aee**||**SEND**|||||**9.5**
+
+timestamp|tokenId|address|exchanged|crossed|minted|burned
+-|-|-|-|-|-|-
+1638265720|aabe4d0aee|DCytPA7wnA|||85.00
+**1638265815**|**aabe4d0aee**|**DCytPA7wnA**|**-10.50**
+**1638265815**|**aabe4d0aee**|**DMzBk9WdM3**|**10.50**
+1638265973|aabe4d0aee|DCytPA7wnA||||-27.00
+1638266083|aabe4d0aee|DCytPA7wnA||-20.00
+1638267582|aabe4d0aee|DJDyG6SVf||9.50
+**1638267817**|**aabe4d0aee**|**DJDyG6SVf**|**-9.50**
+**1638267817**|**aabe4d0aee**|**DCytPA7wnA**|**9,50**
+
+**SQL glimpse**
+
+_Free token_:
+
+```SQL
+SELECT SUM(exchanged, crossed, minted, burned) FROM accountings
+WHERE address IN (
+    SELECT address FROM owners WHERE tokenId='aabe4d0aee'
+) AND tokenId='aabe4d0aee';
+```
+_Circulating token_:
+```SQL
+SELECT SUM(exchanged, crossed) FROM accountings
+WHERE address NOT IN (
+    SELECT address FROM owners WHERE tokenId='aabe4d0aee'
+) AND tokenId='aabe4d0aee';
+```
+_Available token_:
+```SQL
+SELECT SUM(minted, burned, crossed) FROM accountings
+WHERE tokenId='aabe4d0aee';
+```
+_Balances_:
+```SQL
+SELECT address, SUM(exchanged, crossed, minted, burned) FROM accountings
+WHERE tokenId='aabe4d0aee';
+```
 
 <!-- # Journal
 
