@@ -1,6 +1,6 @@
 **Side Ledger Protocol**
 
-  > This is a reflexion about concensus around Side Ledger Protocol developped on Qredit blockchain. Purpose here is to evaluate the actions that have to be done so SLP networt could act as a side-blockchain. The porpose of this documentation is to maximize abstraction level of SLP so it can run with any blockchain where a smrtbridge can be embeded in a transaction.
+  > This is a reflexion about network concensus around Side Ledger Protocol developped on Qredit blockchain. Purpose here is to evaluate the actions that have to be done so SLP networt could act as a side-blockchain. The porpose of this documentation is to maximize abstraction level of SLP so it can run with any blockchain where smartbridge or equivalent can be embeded in a transaction.
 
 # Definitions and rationales
 
