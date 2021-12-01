@@ -1,5 +1,30 @@
 # SLP1 contract descriptions
 
+Action|#|Smart contract equivalent
+-|-|-
+GENESIS|0|Create a new token contract
+BURN|1|Destroy/Burn tokens from a contract
+MINT|2|Create/Mint tokens into a contract
+SEND|3|Send tokens from sender address to recipient address
+PAUSE|4|Pause the contract and prevents any call other than RESUME
+RESUME|5|Resume the contract
+NEWOWNER|6|change the owner of the contract
+FREEZE|7|Freeze balance for token specific wallet
+UNFREEZE|8|UnFreeze balance for token wallet
+
+<!-- **SLP2**
+Action|#|NFT equivalent
+-|-|-
+GENESIS|0|Create a new token
+PAUSE|4|Pause the contract and prevents any call other than RESUME
+RESUME|5|Resume the contract
+NEWOWNER|6|Change the owner of the contract
+AUTHMETA|9|Authorize a wallet to add metadata
+REVOKEMETA|10|Revoke authorization to add metadata
+ADDMETA|11|Add metadata to a contract
+VOIDMETA|12|Mark a previously added metadata as void
+CLONE|13|Create new token by cloning this contract information -->
+
 ## `GENESIS` contract
 
 tb|GENESIS|-
