@@ -76,7 +76,7 @@ onchain token|free token + circulating token - burned token - offchain token
 
 Gold rule:
 
-  > **free token + circulating token + burned token + offchain token == minted token <= global supply****
+  > **free token + circulating token + burned token + offchain token == minted token <= global supply**
 
 ## Journal
 
