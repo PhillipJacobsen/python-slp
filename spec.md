@@ -74,6 +74,10 @@ circulating token|token from all wallets except `OWNER`
 offchain token|cross exchanged token
 onchain token|free token + circulating token - burned token - offchain token
 
+Gold rule:
+
+  > **free token + circulating token + burned token + offchain token == minted token <= global supply****
+
 ## Journal
 
 Database containing the deserialized smartbridge history. It stores contract inputs and timestamp execution (ie block transaction timestamp) with `nok` set to `False` if success or `True` on failure. All SLP database can be rebuilt from this database.
@@ -180,7 +184,7 @@ One can consider two types of nodes in SLP ecosystem
 on receiving proposition:
   1. check if it matches locally
   2. broadcast proposition and wallet to known validators with the last known contract height
-  3. validators answer `True` with the asked height supply state hash: `sha256(height|tokenId|owner|free|circulating|paused)` if accepted or `False` if refused
+  3. validators answer `True` with the asked height supply state hash `sha256(height|tokenId|owner|free|circulating|paused)` if accepted or `False` if refused
   4. if corrum reached, return orphan transaction with SLP smartbridge
 
 on concensus request:
