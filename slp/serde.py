@@ -236,19 +236,19 @@ MAP = {
         "04": unpack_slp1_non_fungible,
         "05": unpack_slp1_non_fungible,
         "06": unpack_slp1_non_fungible,
-        "12": unpack_slp1_non_fungible,
-        "13": unpack_slp1_non_fungible
+        "07": unpack_slp1_non_fungible,
+        "08": unpack_slp1_non_fungible
     },
     'slp2': {
         "00": unpack_slp2_genesis,
         "04": unpack_slp2_non_fungible,
         "05": unpack_slp2_non_fungible,
         "06": unpack_slp2_non_fungible,
-        "07": unpack_slp2_non_fungible,
-        "08": unpack_slp2_addmeta,
         "09": unpack_slp2_non_fungible,
-        "10": unpack_slp2_voidmeta,
-        "11": unpack_slp2_non_fungible
+        "10": unpack_slp2_addmeta,
+        "11": unpack_slp2_non_fungible,
+        "12": unpack_slp2_voidmeta,
+        "13": unpack_slp2_non_fungible
     }
 }
 
