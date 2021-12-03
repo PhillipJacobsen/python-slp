@@ -25,6 +25,9 @@ def send_peers(**request):
 
 
 class Messenger(threading.Thread):
+    """
+    Daemon message manager.
+    """
 
     JOB = queue.Queue()
     LOCK = threading.Lock()
@@ -61,3 +64,8 @@ class Messenger(threading.Thread):
 
     def send(self, message):
         pass
+
+
+def stop():
+    Messenger.LOCK.release()
+    Messenger.STOP.set()

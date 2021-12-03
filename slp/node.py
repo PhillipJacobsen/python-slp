@@ -7,10 +7,14 @@ import traceback
 
 from usrv import req
 
+#: place to sort discovered peers
 PEERS = set([])
 
 
 def broadcast(endpoint, msg, *peers):
+    """
+    Send message as json string to specific endpoints from a peer selection.
+    """
     resp = []
     if isinstance(endpoint, req.EndPoint):
         for peer in peers or PEERS:
@@ -19,19 +23,26 @@ def broadcast(endpoint, msg, *peers):
 
 
 def send_message(msg, *peers):
+    """
+    Post message to `/message` endpoints from a peer selection.
+    """
     return Broadcaster.broadcast(req.POST.message, msg, *peers)
 
 
 def discovery(*peers, peer=None):
+    peers = peers or PEERS
     msg = {"hello": {"peer": peer or f"http://{slp.PUBLIC_IP}:{slp.PORT}"}}
     slp.LOG.debug(
         "launching a discovery of %s to %s peers",
         msg["hello"]["peer"], len(peers)
     )
-    return Broadcaster.broadcast(req.POST.message, msg, *(peers or PEERS))
+    return Broadcaster.broadcast(req.POST.message, msg, *peers)
 
 
 def prospect_peers(*peers):
+    """
+    Recursive peer prospection from a peer selection.
+    """
     slp.LOG.debug("prospecting %s peers", len(peers))
     me = f"http://{slp.PUBLIC_IP}:{slp.PORT}"
     # for all new peer
@@ -43,8 +54,10 @@ def prospect_peers(*peers):
             # add peer to peerlist and prospect peer's peer list
             PEERS.update([peer])
             peer_s_peer = set(resp.get("result", []))
+            # if peer is missing some known peer from here
             if len(PEERS - peer_s_peer):
                 discovery(peer, me)
+            # recursively prospect unknown peers from here
             prospect_peers(*(peer_s_peer - PEERS))
 
 
@@ -54,6 +67,9 @@ def manage_hello(msg):
 
 
 class Broadcaster(threading.Thread):
+    """
+    Daemon broadcast manager.
+    """
 
     JOB = queue.Queue()
     STOP = threading.Event()
@@ -76,3 +92,7 @@ class Broadcaster(threading.Thread):
                 broadcast(endpoint, msg, *peers)
             except Exception as error:
                 slp.LOG.error("%r\n%s" % (error, traceback.format_exc()))
+
+
+def stop():
+    Broadcaster.STOP.set()
