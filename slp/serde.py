@@ -1,9 +1,11 @@
-# -*- utf-8 -*-
+# -*- coding:utf-8 -*-
 
 """
 (c) THOORENS Bruno MIT Licence
 Improvment of Side Level Protocol smartbridge use.
 """
+
+import slp
 
 import re
 import struct
@@ -11,26 +13,8 @@ import binascii
 
 # REGEXP for validation, can be used for webhook subscription
 SLP = re.compile("^(slp[0-9]{1})://(.*)$")
-
-# from https://github.com/Qredit/qslp
-TB = {
-  "GENESIS": 0,      # - Create a new token contract
-  "BURN": 1,         # - Destroy/Burn tokens from a contract
-  "MINT": 2,         # - Create/Mint tokens into a contract
-  "SEND": 3,         # - Send tokens from sender address to recipient address
-  "PAUSE": 4,        # - Pause the contract
-  "RESUME": 5,       # - Resume the contract
-  "NEWOWNER": 6,     # - Change the owner of the contract
-  "FREEZE": 7,       # - Freeze balance for Token @ Address
-  "UNFREEZE": 8,     # - UnFreeze balance for Token @ Address
-  "AUTHMETA": 9,     # - Authorize an address to add meta data
-  "ADDMETA": 10,     # - Add meta data to a contract
-  "VOIDMETA": 11,    # - Mark a previously added meta data as void
-  "REVOKEMETA": 12,  # - Revoke authorization to add meta data
-  "CLONE": 13,       # - Create new token by cloning contract information
-}
-
-BT = dict([v, k] for k, v in TB.items())
+INPUT_TYPES = slp.JSON.get("input types", {})
+TYPES_INPUT = dict([v, k] for k, v in INPUT_TYPES.items())
 
 
 def _pack_varia(*varias):
@@ -81,7 +65,7 @@ def _match_smartbridge(smartbridge):
 # -- SLP1 SERIALIZATION --
 def pack_slp1_genesis(de, qt, sy, na, du="", no="", pa=False, mi=False):
     fixed = struct.pack(
-        "<BBQ??", TB["GENESIS"],
+        "<BBQ??", INPUT_TYPES["GENESIS"],
         int(de), int(qt), bool(pa), bool(mi)
     )
     varia = _pack_varia(sy, na, du, no)
@@ -89,26 +73,26 @@ def pack_slp1_genesis(de, qt, sy, na, du="", no="", pa=False, mi=False):
 
 
 def pack_slp1_fungible(tb, id, qt, no=""):
-    fixed = struct.pack("<B16sQ", TB[tb], binascii.unhexlify(id), qt)
+    fixed = struct.pack("<B16sQ", INPUT_TYPES[tb], binascii.unhexlify(id), qt)
     varia = _pack_varia(no)
     return "slp1://" + binascii.hexlify(fixed).decode() + varia.decode()
 
 
 def pack_slp1_non_fungible(tb, id, no=""):
-    fixed = struct.pack("<B16sQ", TB[tb], binascii.unhexlify(id))
+    fixed = struct.pack("<B16sQ", INPUT_TYPES[tb], binascii.unhexlify(id))
     varia = _pack_varia(no)
     return "slp1://" + binascii.hexlify(fixed).decode() + varia.decode()
 
 
 # -- SLP2 SERIALIZATION --
 def pack_slp2_genesis(sy, na, du="", no="", pa=False):
-    fixed = struct.pack("<B?", TB["GENESIS"], pa)
+    fixed = struct.pack("<B?", INPUT_TYPES["GENESIS"], pa)
     varia = _pack_varia(sy, na, du, no)
     return "slp2://" + binascii.hexlify(fixed).decode() + varia.decode()
 
 
 def pack_slp2_non_fungible(tb, id, no=""):
-    fixed = struct.pack("<B16sQ", TB[tb], binascii.unhexlify(id))
+    fixed = struct.pack("<B16sQ", INPUT_TYPES[tb], binascii.unhexlify(id))
     varia = _pack_varia(no)
     return "slp2://" + binascii.hexlify(fixed).decode() + varia.decode()
 
@@ -116,7 +100,7 @@ def pack_slp2_non_fungible(tb, id, no=""):
 def pack_slp2_addmeta(id, **data):
     metadata = sorted(data.items(), key=lambda i: len("%s%s" % i))
     # pack fixed size data
-    fixed = struct.pack("<B16s", TB["ADDMETA"], binascii.unhexlify(id))
+    fixed = struct.pack("<B16s", INPUT_TYPES["ADDMETA"], binascii.unhexlify(id))
     # smartbridge size - header size - 2*(fixed size + chunk size)
     spaceleft = 256 - len("slp2://") - 2*(len(fixed) + 1)
     # compute the metadata and return a list of smartbridges to contain
@@ -146,7 +130,7 @@ def pack_slp2_addmeta(id, **data):
 
 def pack_slp2_voidmeta(id, tx):
     fixed = struct.pack(
-        "<B16s128s", TB["VOIDMETA"],
+        "<B16s128s", INPUT_TYPES["VOIDMETA"],
         binascii.unhexlify(id), binascii.unhexlify(tx)
     )
     return "slp2://" + binascii.hexlify(fixed).decode()
@@ -161,7 +145,7 @@ def unpack_slp1_genesis(data):
         zip(["tb", "de", "qt", "pa", "mi"], struct.unpack("<BBQ??", fixed)),
         **_unpack_varia(varia, "sy", "na", "du", "no")
     )
-    result["tb"] = BT[result["tb"]]
+    result["tb"] = TYPES_INPUT[result["tb"]]
     return {"slp1": result}
 
 
@@ -174,7 +158,7 @@ def unpack_slp1_fungible(data):
         **_unpack_varia(varia, "no")
     )
     result["id"] = binascii.hexlify(result["id"]).decode()
-    result["tb"] = BT[result["tb"]]
+    result["tb"] = TYPES_INPUT[result["tb"]]
     return {"slp1": result}
 
 
@@ -187,7 +171,7 @@ def unpack_slp1_non_fungible(data):
         **_unpack_varia(varia, "no")
     )
     result["id"] = binascii.hexlify(result["id"]).decode()
-    result["tb"] = BT[result["tb"]]
+    result["tb"] = TYPES_INPUT[result["tb"]]
     return {"slp1": result}
 
 
@@ -200,7 +184,7 @@ def unpack_slp2_genesis(data):
         zip(["tb", "pa"], struct.unpack("<B?", fixed)),
         **_unpack_varia(varia, "sy", "na", "du", "no")
     )
-    result["tb"] = BT[result["tb"]]
+    result["tb"] = TYPES_INPUT[result["tb"]]
     return {"slp2": result}
 
 
@@ -213,7 +197,7 @@ def unpack_slp2_non_fungible(data):
         **_unpack_varia(varia, "no")
     )
     result["id"] = binascii.hexlify(result["id"]).decode()
-    result["tb"] = BT[result["tb"]]
+    result["tb"] = TYPES_INPUT[result["tb"]]
     return {"slp2": result}
 
 
@@ -226,7 +210,7 @@ def unpack_slp2_addmeta(data):
         **{"dt": _unpack_meta(varia)}
     )
     result["id"] = binascii.hexlify(result["id"]).decode()
-    result["tb"] = BT[result["tb"]]
+    result["tb"] = TYPES_INPUT[result["tb"]]
     return {"slp2": result}
 
 
