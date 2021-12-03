@@ -18,6 +18,25 @@ with io.open(os.path.join(os.path.dirname(__file__), "slp.json")) as f:
 
 
 class Quantity(float):
+    """
+    `float` number with a fixed digit number. It exports a property `q` to
+    return itself as an unsigned long long for fast computation within SQL
+    queries.
+
+    ```python
+    >>> import slp
+    >>> v = slp.Quantity(10, de=0)
+    >>> v
+    Quantity(10, 0)
+    >>> v+2.1345
+    Quantity(12, 0)
+    >>> satoshi = slp.Quantity(1, de=8)
+    >>> satoshi
+    Quantity(0.00000001, 8)
+    >>> (satoshi * 2564873.123).q
+    2564873
+    ```
+    """
 
     lowest = -2**63
     highest = -lowest - 1
@@ -117,4 +136,7 @@ def set_public_ip():
 
 
 def is_blockchain_node():
-    pass
+    global BLOCKCHAIN_NODE
+    return os.path.exists(
+        os.path.expanduser("~/.config/")
+    )
