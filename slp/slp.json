@@ -1,0 +1,18 @@
+{
+    "input types": {
+        "GENESIS": 0,
+        "BURN": 1,
+        "MINT": 2,
+        "SEND": 3,
+        "PAUSE": 4,
+        "RESUME": 5,
+        "NEWOWNER": 6,
+        "FREEZE": 7,
+        "UNFREEZE": 8,
+        "AUTHMETA": 9,
+        "ADDMETA": 10,
+        "VOIDMETA": 11,
+        "REVOKEMETA": 12,
+        "CLONE": 13
+    }
+}
