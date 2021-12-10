@@ -9,6 +9,8 @@ from usrv import req
 
 #: place to sort discovered peers
 PEERS = set([])
+#: peer limit to avoid auto DDOS on peer prospection
+PEER_LIMIT = slp.JSON.get("peer limit", 10)
 
 
 def broadcast(endpoint, msg, *peers):
@@ -43,6 +45,10 @@ def prospect_peers(*peers):
     """
     Recursive peer prospection from a peer selection.
     """
+    # exit prospetion if peer limit reached
+    if len(PEERS) > PEER_LIMIT:
+        return
+
     slp.LOG.debug("prospecting %s peers", len(peers))
     me = f"http://{slp.PUBLIC_IP}:{slp.PORT}"
     # for all new peer
