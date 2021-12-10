@@ -1,18 +1,21 @@
 {
+    "slp types": ["slp1", "slp2"],
     "input types": {
         "GENESIS": 0,
-        "BURN": 1,
-        "MINT": 2,
-        "SEND": 3,
-        "PAUSE": 4,
-        "RESUME": 5,
+        "BURN": 1, "MINT": 2, "SEND": 3,
+        "PAUSE": 4, "RESUME": 5,
         "NEWOWNER": 6,
-        "FREEZE": 7,
-        "UNFREEZE": 8,
-        "AUTHMETA": 9,
-        "ADDMETA": 10,
-        "VOIDMETA": 11,
-        "REVOKEMETA": 12,
+        "FREEZE": 7, "UNFREEZE": 8,
+        "AUTHMETA": 9, "ADDMETA": 10, "VOIDMETA": 11, "REVOKEMETA": 12,
         "CLONE": 13
+    },
+
+    "database name": "slp_database",
+    "webhook peer": "http://127.0.0.1:4004",
+    "api peer": "http://127.0.0.1:4003",
+
+    "per token cost": {
+        "slp1": 1,
+        "slp2": 100
     }
 }
