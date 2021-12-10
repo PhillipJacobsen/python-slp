@@ -100,7 +100,9 @@ def pack_slp2_non_fungible(tb, id, no=""):
 def pack_slp2_addmeta(id, **data):
     metadata = sorted(data.items(), key=lambda i: len("%s%s" % i))
     # pack fixed size data
-    fixed = struct.pack("<B16s", INPUT_TYPES["ADDMETA"], binascii.unhexlify(id))
+    fixed = struct.pack(
+        "<B16s", INPUT_TYPES["ADDMETA"], binascii.unhexlify(id)
+    )
     # smartbridge size - header size - 2*(fixed size + chunk size)
     spaceleft = 256 - len("slp2://") - 2*(len(fixed) + 1)
     # compute the metadata and return a list of smartbridges to contain
@@ -154,7 +156,7 @@ def unpack_slp1_fungible(data):
     fixed = binascii.unhexlify(data[:n])
     varia = data[n:].encode()
     result = dict(
-        zip(["tb", "id", "qt"], struct.unpack("<B16sQ",fixed)),
+        zip(["tb", "id", "qt"], struct.unpack("<B16sQ", fixed)),
         **_unpack_varia(varia, "no")
     )
     result["id"] = binascii.hexlify(result["id"]).decode()
