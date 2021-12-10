@@ -80,7 +80,7 @@ Gold rule:
 
 ## Journal
 
-Database containing the deserialized smartbridge history. It stores contract inputs and timestamp execution (ie block transaction timestamp) with `nok` set to `False` if success or `True` on failure. All SLP database can be rebuilt from this database.
+Database containing the deserialized smartbridge history. It stores contract inputs and timestamp execution (ie block transaction timestamp) with `apply` set to `True` if success or `False` on failure. All SLP database can be rebuilt from this database.
 
 Let's consider the events:
 
@@ -94,15 +94,21 @@ Let's consider the events:
 
 Bellow the proposed way to store inputs:
 
-height|timestamp|nok|tx|tb|id|de|qt|sy|na|du|no|pa|mi|ch|dt|wt|pk
--|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-
-250|1638264520||_txId1_|GENESIS||2|150000|TTK|Test Token|||True|True
-251|1638265720||_txId2_|MINT|aabe4d0aee||85.00
-252|**1638265815**||**_txId3_**|**SEND**|**aabe4d0aee**||**10.50**
-253|1638265973||_txId4_|BURN|aabe4d0aee||27.00
-254|1638266083||_txId5_|CCXO|aabe4d0aee||20.00|||||||||_altBlockchainAddress_
-255|1638267582||_altTxId1_|CCSI|aabe4d0aee||9.5|||||||||_DJDypG6SVf_
-256|**1638267817**||**_txId6_**|**SEND**|**aabe4d0aee**||**9.5**
+timestamp|blockheight|txindex|apply|txid|type|tp|id|de|qt|sy|na|du|no|pa|mi|ch|dt|wt|pk
+-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-
+1638264520|250|1||_txId1_|slp1|GENESIS||2|150000|TTK|Test Token|||True|True
+1638265720|251|1||_txId2_|slp1|MINT|aabe4d0aee||85.00
+**1638265815**|252|1||**_txId3_**|slp1|**SEND**|**aabe4d0aee**||**10.50**
+1638265973|253|1||_txId4_|slp1|BURN|aabe4d0aee||27.00
+1638266083|254|1||_txId5_|slp1|CCXO|aabe4d0aee||20.00|||||||||_altBlockchainAddress_
+1638267582|255|1||_altTxId1_|slp1|CCSI|aabe4d0aee||9.5|||||||||_DJDypG6SVf_
+**1638267817**|256|1||**_txId6_**|slp1|**SEND**|**aabe4d0aee**||**9.5**
+
+ - `timestamp`: UTC block timestamp as UNIX representation
+ - `blockheight`: the blockchain height
+ - `txindex`: rank of the transaction in the block
+ - `nok`: valid contract marker (`False` if contract not appliable)
+ - `txid`: blockchain transaction id
 
 **Accounting**
 
