@@ -1,4 +1,6 @@
 {
+    "master address": "ARKQXzHvEWXgfCgAcJWJQKUMus5uE6Yckr",
+
     "slp types": ["slp1", "slp2"],
     "input types": {
         "GENESIS": 0,
