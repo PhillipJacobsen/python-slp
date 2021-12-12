@@ -144,10 +144,10 @@ def unpack_slp1_genesis(data):
     fixed = binascii.unhexlify(data[:n])
     varia = data[n:].encode()
     result = dict(
-        zip(["tb", "de", "qt", "pa", "mi"], struct.unpack("<BBQ??", fixed)),
+        zip(["tp", "de", "qt", "pa", "mi"], struct.unpack("<BBQ??", fixed)),
         **_unpack_varia(varia, "sy", "na", "du", "no")
     )
-    result["tb"] = TYPES_INPUT[result["tb"]]
+    result["tp"] = TYPES_INPUT[result["tp"]]
     return {"slp1": result}
 
 
@@ -156,11 +156,11 @@ def unpack_slp1_fungible(data):
     fixed = binascii.unhexlify(data[:n])
     varia = data[n:].encode()
     result = dict(
-        zip(["tb", "id", "qt"], struct.unpack("<B16sQ", fixed)),
+        zip(["tp", "id", "qt"], struct.unpack("<B16sQ", fixed)),
         **_unpack_varia(varia, "no")
     )
     result["id"] = binascii.hexlify(result["id"]).decode()
-    result["tb"] = TYPES_INPUT[result["tb"]]
+    result["tp"] = TYPES_INPUT[result["tp"]]
     return {"slp1": result}
 
 
@@ -169,11 +169,11 @@ def unpack_slp1_non_fungible(data):
     fixed = binascii.unhexlify(data[:n])
     varia = data[n:].encode()
     result = dict(
-        zip(["tb", "id"], struct.unpack("<B16s", fixed)),
+        zip(["tp", "id"], struct.unpack("<B16s", fixed)),
         **_unpack_varia(varia, "no")
     )
     result["id"] = binascii.hexlify(result["id"]).decode()
-    result["tb"] = TYPES_INPUT[result["tb"]]
+    result["tp"] = TYPES_INPUT[result["tp"]]
     return {"slp1": result}
 
 
@@ -183,10 +183,10 @@ def unpack_slp2_genesis(data):
     fixed = binascii.unhexlify(data[:n])
     varia = data[n:].encode()
     result = dict(
-        zip(["tb", "pa"], struct.unpack("<B?", fixed)),
+        zip(["tp", "pa"], struct.unpack("<B?", fixed)),
         **_unpack_varia(varia, "sy", "na", "du", "no")
     )
-    result["tb"] = TYPES_INPUT[result["tb"]]
+    result["tp"] = TYPES_INPUT[result["tp"]]
     return {"slp2": result}
 
 
@@ -195,11 +195,11 @@ def unpack_slp2_non_fungible(data):
     fixed = binascii.unhexlify(data[:n])
     varia = data[n:].encode()
     result = dict(
-        zip(["tb", "id"], struct.unpack("<B16s", fixed)),
+        zip(["tp", "id"], struct.unpack("<B16s", fixed)),
         **_unpack_varia(varia, "no")
     )
     result["id"] = binascii.hexlify(result["id"]).decode()
-    result["tb"] = TYPES_INPUT[result["tb"]]
+    result["tp"] = TYPES_INPUT[result["tp"]]
     return {"slp2": result}
 
 
@@ -208,11 +208,11 @@ def unpack_slp2_addmeta(data):
     fixed = binascii.unhexlify(data[:n])
     varia = data[n:].encode()
     result = dict(
-        zip(["tb", "id", "ch"], struct.unpack("<B16sB", fixed)),
+        zip(["tp", "id", "ch"], struct.unpack("<B16sB", fixed)),
         **{"dt": _unpack_meta(varia)}
     )
     result["id"] = binascii.hexlify(result["id"]).decode()
-    result["tb"] = TYPES_INPUT[result["tb"]]
+    result["tp"] = TYPES_INPUT[result["tp"]]
     return {"slp2": result}
 
 
@@ -221,7 +221,7 @@ def unpack_slp2_voidmeta(data):
     fixed = binascii.unhexlify(data)
     # varia = data[n:].encode()
     result = dict(
-        zip(["tb", "tx"], struct.unpack("<B16sB", fixed)),
+        zip(["tp", "tx"], struct.unpack("<B16sB", fixed)),
         # **_unpack_meta(varia)
     )
     result["id"] = binascii.hexlify(result["id"]).decode()
