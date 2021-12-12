@@ -95,7 +95,7 @@ Let's consider the events:
 Bellow the proposed way to store inputs:
 
 timestamp|blockheight|txindex|apply|txid|type|tp|id|de|qt|sy|na|du|no|pa|mi|ch|dt|wt|pk
--|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-
+-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-
 1638264520|250|1||_txId1_|slp1|GENESIS||2|150000|TTK|Test Token|||True|True
 1638265720|251|1||_txId2_|slp1|MINT|aabe4d0aee||85.00
 **1638265815**|252|1||**_txId3_**|slp1|**SEND**|**aabe4d0aee**||**10.50**
