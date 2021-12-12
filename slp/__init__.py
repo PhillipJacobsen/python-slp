@@ -2,26 +2,43 @@
 
 import io
 import os
+import re
 import json
 import socket
 import logging
+
+with io.open(os.path.join(os.path.dirname(__file__), "slp.json")) as f:
+    JSON = json.load(f)
 
 BLOCKCHAIN_NODE = False
 PUBLIC_IP = "127.0.0.1"
 PORT = 5000
 
 LOG = logging.getLogger("slp")
-LOG.setLevel("DEBUG")
+LOG.setLevel(JSON.get("log level", "DEBUG"))
 
-with io.open(os.path.join(os.path.dirname(__file__), "slp.json")) as f:
-    JSON = json.load(f)
+VALIDATION = {
+    "tp": lambda value: value in JSON["input types"],
+    "id": lambda value: re.match("^[0-9a-fA-F]{32}$", value) is not None,
+    "qt": lambda value: isinstance(value, (int, float)),
+    "de": lambda value: 0 <= value <= 8,
+    "sy": lambda value: re.match("^[0-9a-ZA-Z]{3,8}$", value) is not None,
+    "na": lambda value: re.match("^.{3,24}$", value) is not None,
+    "du": lambda value: value == "" or re.match(
+        r"(https?|ipfs|ipns|dweb):\/\/[a-z0-9\/:%_+.,#?!@&=-]{3,27}", value
+    ) is not None,
+    "no": lambda value: re.match("^.{0,32}$", value) is not None,
+    "pa": lambda value: value in [True, False, 0, 1],
+    "mi": lambda value: value in [True, False, 0, 1],
+    "ch": lambda value: isinstance(value, int),
+    "dt": lambda value: re.match("^.{0,256}$", value) is not None
+}
 
 
 class Quantity(float):
     """
     `float` number with a fixed digit number. It exports a property `q` to
-    return itself as an unsigned long long for fast computation within SQL
-    queries.
+    return itself as an unsigned integer for faster computation.
 
     ```python
     >>> import slp
@@ -118,6 +135,14 @@ class Quantity(float):
         except AssertionError:
             raise Exception("%r can't be set to %s" % (value, self))
         return value
+
+
+def validate(**fields):
+    tests = dict(
+        [k, VALIDATION[k](v)] for k, v in fields.items() if k in VALIDATION
+    )
+    LOG.debug("validation result: %s", tests)
+    return list(tests.values()).count(False) == 0
 
 
 def set_public_ip():
