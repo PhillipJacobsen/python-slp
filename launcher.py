@@ -9,7 +9,7 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 if __name__ == "__main__":
     import slp
     from usrv import srv
-    from slp import msg, node
+    from slp import msg, node, chain
 
     parser = srv.OptionParser(
         usage="usage: %prog [options] BINDINGS...",
@@ -27,6 +27,7 @@ if __name__ == "__main__":
 
     msg.Messenger()
     node.Broadcaster()
+    chain.Chainer()
 
     (options, args) = parser.parse_args()
     slp.PUBLIC_IP = options.host
