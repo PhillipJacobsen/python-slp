@@ -20,9 +20,6 @@ db.supply.create_index("tokenId", unique=True)
 # ---
 
 
-#
-# MONGO DB ATOMIC ACTION ---
-
 def add_reccord(height, index, txid, slp_type, emitter, receiver, cost, **kw):
     """
     Add a reccord in the journal.
@@ -52,7 +49,7 @@ def add_reccord(height, index, txid, slp_type, emitter, receiver, cost, **kw):
             dict(
                 height=height, index=index, txid=txid,
                 slp_type=slp_type, emitter=emitter, receiver=receiver,
-                legit=None, cost=cost, **fields
+                cost=cost, legit=None, **fields
             )
         )
     except Exception as error:
