@@ -14,7 +14,7 @@ from usrv import srv
 @srv.bind("/block", methods=["POST"])
 def listen_blockchain(**request):
     if request["method"] == "POST":
-        chain.manage_block(**request)
+        Messenger.put({"webhook": request})
 
 
 # listen requests to /message endpoint
@@ -77,20 +77,13 @@ class Messenger(threading.Thread):
         while not Messenger.STOP.is_set():
             try:
                 request = Messenger.JOB.get()
-                msg = request.get("data", {})
-
-                slp.LOG.info("performing message: %r", msg)
-
-                if "hello" in msg:
-                    node.manage_hello(msg)
-                elif "input" in msg:
-                    # get wallet address from header and put to contract
-                    headers = request.get("headers", {})
-                    msg["input"]["wallet"] = headers["Wallet-Address"]
-                    dbapi.manage_input(msg)
-                elif "confirm" in msg:
-                    chain.manage_confirm(msg)
-
+                if "webhook" in request:
+                    chain.manage_block(**request["webhook"])
+                else:
+                    msg = request.get("data", {})
+                    slp.LOG.info("performing message: %r", msg)
+                    if "hello" in msg:
+                        node.manage_hello(msg)
             except Exception as error:
                 slp.LOG.error("%r\n%s" % (error, traceback.format_exc()))
                 Messenger.LOCK.release()
