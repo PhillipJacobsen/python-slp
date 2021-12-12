@@ -29,6 +29,9 @@ def add_reccord(height, index, txid, slp_type, emitter, receiver, cost, **kw):
         index (int): transaction index in the block.
         txid (str): transaction id as hex.
         slp_type (str): see SLP contract types.
+        emitter (str): sender id wallet.
+        receiver (str): recipient id wallet.
+        cost (int): amount of transaction.
         **kw (keyword args): contract field values.
 
     Returns:

@@ -9,8 +9,10 @@ import pickle
 import hashlib
 import traceback
 import threading
+import importlib
 
-from slp import serde, dbapi, slp1
+from slp import serde, dbapi
+from bson.decimal128 import Decimal128
 from usrv import req
 
 
@@ -144,12 +146,15 @@ def parse_block(block):
             slp.LOG.info("> SLP vendorField found:\n%s", contract)
             try:
                 slp_type, fields = contract.items()
-                # compute token id for GENESIS contracts
+                # compute token id for GENESIS contracts and add the Decima128
+                # converter to slp.DECIMAL128 dict
                 if fields["tp"] == "GENESIS":
-                    fields.update(
-                        id=get_token_id(
-                            slp_type, fields["sy"], block["height"], tx["id"]
-                        )
+                    tokenId = get_token_id(
+                        slp_type, fields["sy"], block["height"], tx["id"]
+                    )
+                    fields.update(id=tokenId)
+                    slp.DECIMAL128[tokenId] = lambda v: Decimal128(
+                        f"%.{fields['de']}f" % v
                     )
                 # add wallets information and cost
                 fields.update(
@@ -186,14 +191,21 @@ class Chainer(threading.Thread):
         while not Chainer.STOP.is_set():
             try:
                 slp_type, contract = Chainer.JOB.get()
-                # get slp.`slp_type` module to manage the contract
+                module = f"slp.{slp_type}"
+                if module not in sys.modules:
+                    importlib.__import__(module)
                 slp.LOG.info(
-                    "Contract execution:\n%s\n->%s",
+                    "Contract execution:\n<-%s\n->%s",
                     contract,
-                    getattr(sys.modules[__name__], slp_type).manage(contract)
+                    sys.modules[module].manage(contract)
+                )
+            except ImportError:
+                slp.LOG.info(
+                    "No modules found to handle '%s' contracts", slp_type
                 )
             except Exception as error:
                 slp.LOG.error("%r\n%s" % (error, traceback.format_exc()))
+            finally:
                 Chainer.LOCK.release()
 
 
