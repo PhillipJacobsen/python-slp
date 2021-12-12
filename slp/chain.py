@@ -1,6 +1,7 @@
 # -*- coding:utf-8 -*-
 
 import os
+import sys
 import slp
 import json
 import queue
@@ -106,10 +107,6 @@ def get_block_transactions(blockId):
     return result
 
 
-def is_valid_address(address):
-    return True or False
-
-
 def read_vendorField(vendorField):
     contract = False
     try:
@@ -124,11 +121,14 @@ def read_vendorField(vendorField):
 
 def manage_block(**request):
     # webhook security check
-    headers = request.get("headers", {})
-    if not check_webhook_token(headers.get("Authorization", "?")):
+    auth = request.get("headers", {}).get("authorization", "?")
+    if not check_webhook_token(auth):
         return False
-    block = request.get("data", {})
+    # get block header
+    body = request.get("data", {})
+    block = body.get("data", {})
     slp.LOG.info("Genuine block header received:\n%s", block)
+    # parse block
     return parse_block(block)
 
 
@@ -151,7 +151,7 @@ def parse_block(block):
                             slp_type, fields["sy"], block["height"], tx["id"]
                         )
                     )
-                # add wallets information and tx amount as cost
+                # add wallets information and cost
                 fields.update(
                     emitter=tx["senderId"], receiver=tx["recipientId"],
                     cost=int(tx["amount"])
@@ -162,14 +162,11 @@ def parse_block(block):
                     block["height"], index, tx["id"], slp_type, **fields
                 ):
                     slp.LOG.info("Document %s added to journal", fields)
+                    # send contract application as job
                     Chainer.JOB.put([slp_type, fields])
             except Exception as error:
                 slp.LOG.error("%r\n%s" % (error, traceback.format_exc()))
     return True
-
-
-def manage_confirm(msg):
-    pass
 
 
 class Chainer(threading.Thread):
@@ -190,7 +187,11 @@ class Chainer(threading.Thread):
             try:
                 slp_type, contract = Chainer.JOB.get()
                 # get slp.`slp_type` module to manage the contract
-                getattr(slp, slp_type).manage(contract)
+                slp.LOG.info(
+                    "Contract execution:\n%s\n->%s",
+                    contract,
+                    getattr(sys.modules[__name__], slp_type).manage(contract)
+                )
             except Exception as error:
                 slp.LOG.error("%r\n%s" % (error, traceback.format_exc()))
                 Chainer.LOCK.release()
