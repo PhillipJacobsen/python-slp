@@ -12,7 +12,6 @@ import threading
 import importlib
 
 from slp import serde, dbapi
-from bson.decimal128 import Decimal128
 from usrv import req
 
 
@@ -20,8 +19,8 @@ def get_token_id(slp_type, symbol, blockheight, txid):
     """
     Generate token id.
     """
-    raw = "%s.%s.%s.%s" % (slp_type, symbol, blockheight, txid)
-    return hashlib.md5(raw.encode("utf-8")).hexdigest().Decode("utf-8")
+    raw = "%s.%s.%s.%s" % (slp_type.upper(), symbol, blockheight, txid)
+    return hashlib.md5(raw.encode("utf-8")).hexdigest()
 
 
 def subscribe():
@@ -102,7 +101,7 @@ def get_block_transactions(blockId):
     peer = slp.JSON["api peer"]
     while len(data) > 0:
         data = req.GET.api.blocks(
-            blockId, "transactions", page=page, peer=peer
+            blockId, "transactions", page=page, peer=peer, headers=slp.HEADERS
         ).get("data", [])
         result += data
         page += 1
@@ -139,26 +138,31 @@ def parse_block(block):
     tx_list = get_block_transactions(block["id"])
     loop = zip(list(range(len(tx_list))), tx_list)
     # search for SLP vendor fields in transfer type transactions
-    for index, tx in [(i+1, t) for i, t in loop if t["type"] == 0]:
+    for index, tx in [
+        (i+1, t) for i, t in loop
+        if t["type"] == 0 and
+        t.get("vendorField", False)
+    ]:
         # try to read contract from vendor field
         contract = read_vendorField(tx["vendorField"])
         if contract:
             slp.LOG.info("> SLP vendorField found:\n%s", contract)
             try:
-                slp_type, fields = contract.items()
-                # compute token id for GENESIS contracts and add the Decima128
-                # converter to slp.DECIMAL128 dict
+                slp_type, fields = list(contract.items())[0]
+                # compute token id for GENESIS contracts
                 if fields["tp"] == "GENESIS":
                     tokenId = get_token_id(
                         slp_type, fields["sy"], block["height"], tx["id"]
                     )
                     fields.update(id=tokenId)
-                    slp.DECIMAL128[tokenId] = lambda v: Decimal128(
-                        f"%.{fields['de']}f" % v
-                    )
+                    if slp_type in ["aslp1"]:
+                        slp.DECIMAL128[tokenId] = \
+                            lambda v, de=fields.get('de', 0): \
+                            slp.Decimal128(f"%.{de}f" % v)
+
                 # add wallets information and cost
                 fields.update(
-                    emitter=tx["senderId"], receiver=tx["recipientId"],
+                    emitter=tx["sender"], receiver=tx["recipient"],
                     cost=int(tx["amount"])
                 )
                 # dbapi.add_reccord returns False if reccord already in
@@ -170,7 +174,12 @@ def parse_block(block):
                     # send contract application as job
                     Chainer.JOB.put([slp_type, fields])
             except Exception as error:
+                slp.LOG.info(
+                    "Error occured with tx %s in block %d: vendorField=%s",
+                    tx["id"], block["height"], contract
+                )
                 slp.LOG.error("%r\n%s" % (error, traceback.format_exc()))
+
     return True
 
 
@@ -185,6 +194,11 @@ class Chainer(threading.Thread):
         self.daemon = True
         self.start()
         slp.LOG.info("Chainer %s set", id(self))
+
+    @staticmethod
+    def stop():
+        Chainer.LOCK.release()
+        Chainer.STOP.set()
 
     def run(self):
         # controled infinite loop
@@ -204,11 +218,4 @@ class Chainer(threading.Thread):
                     "No modules found to handle '%s' contracts", slp_type
                 )
             except Exception as error:
-                slp.LOG.error("%r\n%s" % (error, traceback.format_exc()))
-            finally:
-                Chainer.LOCK.release()
-
-
-def stop():
-    Chainer.LOCK.release()
-    Chainer.STOP.set()
+                slp.LOG.error("%r\n%s", error, traceback.format_exc())
