@@ -143,6 +143,11 @@ class Processor(threading.Thread):
                 )
 
                 if blocks.get("status", False) == 200:
+                    slp.dumpJson(
+                        {"last parsed block": blocks["data"][-1]["height"]},
+                        "processor.mark", ".json"
+                    )
+
                     blocks = [
                         b for b in blocks.get("data", [])
                         if b["transactions"] > 0 and b["height"] > start_height
@@ -156,15 +161,11 @@ class Processor(threading.Thread):
                         for block in blocks:
                             chain.parse_block(block)
 
-                    slp.dumpJson(
-                        {"last parsed block": blocks["data"][-1]["height"]},
-                        "processor.mark", ".json"
-                    )
-
                     page += 1
 
                 else:
                     slp.LOG.info("No block from %s", peer)
+                    peers.remove(peer)
                     peer = random.choice(peers)
 
             except Exception as error:
