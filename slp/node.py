@@ -90,6 +90,10 @@ class Broadcaster(threading.Thread):
     def broadcast(*args):
         Broadcaster.JOB.put(args)
 
+    @staticmethod
+    def stop():
+        Broadcaster.STOP.set()
+
     def run(self):
         # controled infinite loop
         while not Broadcaster.STOP.is_set():
@@ -97,8 +101,4 @@ class Broadcaster(threading.Thread):
                 endpoint, msg, *peers = Broadcaster.JOB.get()
                 broadcast(endpoint, msg, *peers)
             except Exception as error:
-                slp.LOG.error("%r\n%s" % (error, traceback.format_exc()))
-
-
-def stop():
-    Broadcaster.STOP.set()
+                slp.LOG.error("%r\n%s", error, traceback.format_exc())
