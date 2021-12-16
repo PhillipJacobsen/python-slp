@@ -26,7 +26,7 @@ VALIDATION = {
     "du": lambda value: value == "" or re.match(
         r"(https?|ipfs|ipns|dweb):\/\/[a-z0-9\/:%_+.,#?!@&=-]{3,27}", value
     ) is not None,
-    "no": lambda value: re.match(r"^.{0,32}$", value) is not None,
+    "no": lambda value: re.match(r"^.{0,180}$", value) is not None,
     "pa": lambda value: value in [True, False, 0, 1],
     "mi": lambda value: value in [True, False, 0, 1],
     "ch": lambda value: isinstance(value, int),
@@ -47,8 +47,6 @@ def validate(**fields):
     tests = dict(
         [k, VALIDATION[k](v)] for k, v in fields.items() if k in VALIDATION
     )
-    if "qt" in fields and "id" in fields:
-        fields["qt"] = DECIMAL128[fields["id"]](fields["qt"])
     LOG.debug("validation result: %s", tests)
     return list(tests.values()).count(False) == 0
 
