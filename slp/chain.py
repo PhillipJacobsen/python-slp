@@ -155,16 +155,15 @@ def parse_block(block):
                         slp_type, fields["sy"], block["height"], tx["id"]
                     )
                     fields.update(id=tokenId)
-                    if slp_type in ["aslp1"]:
-                        slp.DECIMAL128[tokenId] = \
-                            lambda v, de=fields.get('de', 0): \
-                            slp.Decimal128(f"%.{de}f" % v)
-
                 # add wallets information and cost
                 fields.update(
                     emitter=tx["sender"], receiver=tx["recipient"],
                     cost=int(tx["amount"])
                 )
+                if "de" in fields:
+                    fields["de"] = int(fields["de"])
+                if "qt" in fields:
+                    fields["qt"] = int(fields["qt"])
                 # dbapi.add_reccord returns False if reccord already in
                 # journal.
                 if dbapi.add_reccord(
@@ -205,7 +204,7 @@ class Chainer(threading.Thread):
         while not Chainer.STOP.is_set():
             try:
                 slp_type, contract = Chainer.JOB.get()
-                module = f"slp.{slp_type}"
+                module = f"slp.{slp_type[1:]}"
                 if module not in sys.modules:
                     importlib.__import__(module)
                 slp.LOG.info(
