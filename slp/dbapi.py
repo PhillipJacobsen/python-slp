@@ -80,7 +80,9 @@ def select_peers():
         orderBy="height:desc",
         headers=slp.HEADERS
     ).get("data", [])
-    for candidate in candidates:
+    highest = max([c["height"] for c in candidates])
+    candidates = sorted(candidates, key=lambda e: highest-e["height"])
+    for candidate in candidates[:20]:
         api_port = candidate.get("ports", {}).get(
             "@arkecosystem/core-api", -1
         )
@@ -103,7 +105,6 @@ class Processor(threading.Thread):
 
     @staticmethod
     def stop():
-        Processor.LOCK.release()
         Processor.STOP.set()
 
     def run(self):
@@ -133,6 +134,7 @@ class Processor(threading.Thread):
         slp.LOG.info("Start downloading blocks from height %s", start_height)
 
         # controled infinite loop
+        Processor.STOP.clear()
         while not Processor.STOP.is_set():
             try:
 
@@ -147,6 +149,10 @@ class Processor(threading.Thread):
                         {"last parsed block": blocks["data"][-1]["height"]},
                         "processor.mark", ".json"
                     )
+
+                    if blocks.get("meta", {}).get("next", False) is None:
+                        slp.LOG.info("End of blocks reached")
+                        Processor.stop()
 
                     blocks = [
                         b for b in blocks.get("data", [])
@@ -166,6 +172,8 @@ class Processor(threading.Thread):
                 else:
                     slp.LOG.info("No block from %s", peer)
                     peers.remove(peer)
+                    if len(peers) == 1:
+                        peers = select_peers()
                     peer = random.choice(peers)
 
             except Exception as error:
@@ -173,4 +181,5 @@ class Processor(threading.Thread):
                 Processor.stop()
 
         req.EndPoint.timeout = timeout
-        slp.LOG.info("Processor %d task finished", id(self))
+        slp.LOG.info("Processor %d task exited", id(self))
+        chain.Chainer()

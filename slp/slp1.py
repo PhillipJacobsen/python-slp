@@ -2,6 +2,9 @@
 
 import slp
 import sys
+import traceback
+
+from slp import dbapi
 
 
 def manage(contract):
@@ -14,11 +17,44 @@ def manage(contract):
 
 
 def manage_genesis(contract):
-    # add Decimal for accounting precision
-    slp.DECIMAL128[contract["id"]] = \
+    # basic checking
+    assert contract["qt"] % 1 == 0
+
+    # add Decimal128 for accounting precision
+    tokenId = contract["id"]
+    slp.DECIMAL128[tokenId] = \
         lambda v, de=contract.get('de', 0): \
         slp.Decimal128(f"%.{de}f" % v)
-    return True or False
+
+    qt = slp.DECIMAL128[tokenId](contract["qt"])
+    try:
+        dbapi.db.contracts.insert_one(
+            {
+                "tokenId": tokenId,
+                "height": contract["height"],
+                "index": contract["index"],
+                "owner": contract["emitter"],
+                "quantity": qt,
+                "pausable": contract["pa"],
+                "mintable": contract["mi"],
+            }
+        )
+        if not contract["mi"]:
+            dbapi.db.wallets.insert_one(
+                {
+                    "address": contract["emitter"],
+                    "tokenId": tokenId,
+                    "lastUpdate": f"{contract['height']}#{contract['index']}",
+                    "balance": qt,
+                    "owner": True,
+                    "frozen": False
+                }
+            )
+        return True
+
+    except Exception as error:
+        slp.LOG.error("%r\n%s", error, traceback.format_exc())
+        return False
 
 
 def manage_burn(contract):
