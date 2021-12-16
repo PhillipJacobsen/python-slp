@@ -14,6 +14,10 @@ def manage(contract):
 
 
 def manage_genesis(contract):
+    # add Decimal for accounting precision
+    slp.DECIMAL128[contract["id"]] = \
+        lambda v, de=contract.get('de', 0): \
+        slp.Decimal128(f"%.{de}f" % v)
     return True or False
 
 
