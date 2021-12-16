@@ -7,14 +7,19 @@ import hashlib
 import threading
 import traceback
 
-from slp import node, chain, dbapi
+from slp import node, chain
 from usrv import srv
 
 
 @srv.bind("/block", methods=["POST"])
 def listen_blockchain(**request):
+    """
+    Endpoint used to listen webhook data from `chain.subscribe` action. It
+    sends the request to Messenger so the endpoint unloads itself as fast as
+    possible.
+    """
     if request["method"] == "POST":
-        Messenger.put({"webhook": request})
+        return {"queued": Messenger.put({"webhook": request})}
 
 
 # listen requests to /message endpoint
@@ -32,6 +37,9 @@ def send_peers(**request):
 
 
 class Memory(queue.Queue):
+    """
+    Queue avoiding double inputs.
+    """
 
     LOCK = threading.Lock()
 
@@ -58,7 +66,7 @@ class Memory(queue.Queue):
 
 class Messenger(threading.Thread):
     """
-    Daemon message manager.
+    Message manager.
     """
 
     JOB = queue.Queue()
@@ -71,6 +79,20 @@ class Messenger(threading.Thread):
         self.daemon = True
         self.start()
         slp.LOG.info("Messenger %s set", id(self))
+
+    @staticmethod
+    def put(request):
+        # try to memorize message
+        queued = Messenger.MEM.put(request.get("data", {}))
+        # memorized
+        if queued:
+            Messenger.JOB.put(request)
+        return queued
+
+    @staticmethod
+    def stop():
+        Messenger.LOCK.release()
+        Messenger.STOP.set()
 
     def run(self):
         # controled infinite loop
@@ -85,19 +107,5 @@ class Messenger(threading.Thread):
                     if "hello" in msg:
                         node.manage_hello(msg)
             except Exception as error:
-                slp.LOG.error("%r\n%s" % (error, traceback.format_exc()))
-                Messenger.LOCK.release()
-
-    @staticmethod
-    def put(request):
-        # try to memorize message
-        queued = Messenger.MEM.put(request.get("data", {}))
-        # memorized
-        if queued:
-            Messenger.JOB.put(request)
-        return queued
-
-
-def stop():
-    Messenger.LOCK.release()
-    Messenger.STOP.set()
+                slp.LOG.error("%r\n%s", error, traceback.format_exc())
+                # Messenger.LOCK.release()
