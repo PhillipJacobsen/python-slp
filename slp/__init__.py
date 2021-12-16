@@ -10,6 +10,7 @@ import logging
 with io.open(os.path.join(os.path.dirname(__file__), "slp.json")) as f:
     JSON = json.load(f)
 
+ROOT = os.path.abspath(os.path.dirname(__file__))
 BLOCKCHAIN_NODE = False
 PUBLIC_IP = "127.0.0.1"
 PORT = 5000
@@ -20,7 +21,7 @@ VALIDATION = {
     "id": lambda value: re.match(r"^[0-9a-fA-F]{32}$", value) is not None,
     "qt": lambda value: isinstance(value, (int, float)),
     "de": lambda value: 0 <= value <= 8,
-    "sy": lambda value: re.match(r"^[0-9a-ZA-Z]{3,8}$", value) is not None,
+    "sy": lambda value: re.match(r"^[0-9a-zA-Z]{3,8}$", value) is not None,
     "na": lambda value: re.match(r"^.{3,24}$", value) is not None,
     "du": lambda value: value == "" or re.match(
         r"(https?|ipfs|ipns|dweb):\/\/[a-z0-9\/:%_+.,#?!@&=-]{3,27}", value
@@ -30,6 +31,12 @@ VALIDATION = {
     "mi": lambda value: value in [True, False, 0, 1],
     "ch": lambda value: isinstance(value, int),
     "dt": lambda value: re.match(r"^.{0,256}$", value) is not None
+}
+
+HEADERS = {
+    "API-Version": "3",
+    "Content-Type": "application/json",
+    "User-Agent": "Python/usrv - Side Ledger Protocol"
 }
 
 LOG = logging.getLogger("slp")
@@ -66,3 +73,23 @@ def is_blockchain_node():
     return os.path.exists(
         os.path.expanduser("~/.config/")
     )
+
+
+def loadJson(name, folder=None):
+    filename = os.path.join(JSON if not folder else folder, name)
+    if os.path.exists(filename):
+        with io.open(filename, "r", encoding="utf-8") as in_:
+            data = json.load(in_)
+    else:
+        data = {}
+    return data
+
+
+def dumpJson(data, name, folder=None):
+    filename = os.path.join(JSON if not folder else folder, name)
+    try:
+        os.makedirs(os.path.dirname(filename))
+    except OSError:
+        pass
+    with io.open(filename, "w", encoding="utf-8") as out:
+        json.dump(data, out, indent=4)
