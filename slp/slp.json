@@ -1,7 +1,12 @@
 {
     "master address": "ARKQXzHvEWXgfCgAcJWJQKUMus5uE6Yckr",
 
-    "slp types": ["slp1", "slp2"],
+    "slp types": ["aslp1", "aslp2"],
+    "milestones": {
+        "aslp1": 17891337,
+        "aslp2": 17891337
+    },
+
     "input types": {
         "GENESIS": 0,
         "BURN": 1, "MINT": 2, "SEND": 3,
@@ -12,12 +17,14 @@
         "CLONE": 13
     },
 
-    "database name": "slp_database",
+    "serialized regex": "^(aslp[0-9]{1})://(.*)$",
+
+    "database name": "slp_database",  
     "webhook peer": "http://127.0.0.1:4004",
-    "api peer": "http://127.0.0.1:4003",
+    "api peer": "https://api.ark.io",
 
     "per token cost": {
-        "slp1": 1,
-        "slp2": 100
+        "aslp1": 1,
+        "aslp2": 100
     }
 }
