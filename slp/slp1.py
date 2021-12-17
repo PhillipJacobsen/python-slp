@@ -5,87 +5,86 @@ import sys
 import traceback
 
 from slp import dbapi
+from bson import Decimal128
 
 
 def manage(contract):
     try:
         return getattr(
-            sys.modules[__name__], "manage_%s" % contract["tp"].lower()
+            sys.modules[__name__], "apply_%s" % contract["tp"].lower()
         )(contract)
     except AttributeError:
         slp.LOG.error("Unknown contract type %s", contract["tp"])
 
 
-def manage_genesis(contract):
-    # basic checking
-    assert contract["qt"] % 1 == 0
+def apply_genesis(contract):
+    try:
+        # initial quantity should avoid decimal part
+        assert contract["qt"] % 1 == 0
+        assert contract["cost"] >= slp.JSON["GENESIS cost"]["aslp1"]
+        assert contract["receiver"] == slp.JSON["master address"]
+    except AssertionError:
+        line = traceback.format_exc().split("\n")[-3].strip()
+        slp.LOG.error("invalid contract: %s\n%s", line, contract)
+        return dbapi.set_legit(contract, False)
 
-    # add Decimal128 for accounting precision
     tokenId = contract["id"]
+    # add Decimal128 for accounting precision
     slp.DECIMAL128[tokenId] = \
         lambda v, de=contract.get('de', 0): \
-        slp.Decimal128(f"%.{de}f" % v)
-
+        Decimal128(f"%.{de}f" % v)
     qt = slp.DECIMAL128[tokenId](contract["qt"])
-    try:
-        dbapi.db.contracts.insert_one(
-            {
-                "tokenId": tokenId,
-                "height": contract["height"],
-                "index": contract["index"],
-                "owner": contract["emitter"],
-                "quantity": qt,
-                "pausable": contract["pa"],
-                "mintable": contract["mi"],
-            }
+    # add contract
+    check = [
+        dbapi.upsert_contract(
+            tokenId,
+            height=contract["height"], index=contract["index"], type="aslp1",
+            name=contract["na"], owner=contract["emitter"], globalSupply=qt,
+            paused=False,
         )
-        if not contract["mi"]:
-            dbapi.db.wallets.insert_one(
-                {
-                    "address": contract["emitter"],
-                    "tokenId": tokenId,
-                    "lastUpdate": f"{contract['height']}#{contract['index']}",
-                    "balance": qt,
-                    "owner": True,
-                    "frozen": False
-                }
+    ]
+    # add owner ballance if not mintable
+    if not contract.get("mi", False):
+        check.append(
+            dbapi.upsert_wallet(
+                contract["emitter"], tokenId,
+                lastUpdate=f"{contract['height']}#{contract['index']}",
+                balance=qt, owner=True, frozen=False
             )
-        return True
-
-    except Exception as error:
-        slp.LOG.error("%r\n%s", error, traceback.format_exc())
-        return False
+        )
+    # set contract as legit if no Errors
+    return dbapi.set_legit(contract, check.count(False) == 0)
 
 
-def manage_burn(contract):
+def apply_burn(contract):
     return True or False
 
 
-def manage_mint(contract):
+def apply_mint(contract):
     return True or False
 
 
-def manage_send(contract):
+def apply_send(contract):
     return True or False
 
 
-def manage_freeze(contract):
+def apply_freeze(contract):
     return True or False
 
 
-def manage_unfreeze(contract):
+def apply_unfreeze(contract):
     return True or False
 
 
-def manage_newowner(contract):
+def apply_newowner(contract):
     return True or False
 
 
-def manage_pause(contract):
+def apply_pause(contract):
     return True or False
 
 
-def manage_resume(contract):
+def apply_resume(contract):
     return True or False
 
 
@@ -197,7 +196,7 @@ def manage_resume(contract):
 # #     )
 
 
-# # def manage_input(msg):
+# # def apply_input(msg):
 # #     if not slp.BLOCKCHAIN_NODE:
 # #         node.send_message({
 # #             "confirm": dict(
@@ -209,7 +208,7 @@ def manage_resume(contract):
 # #         pass
 
 
-# # def manage_confirm(msg):
+# # def apply_confirm(msg):
 # #     pass
 
 

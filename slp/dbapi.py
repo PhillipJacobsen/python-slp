@@ -32,6 +32,12 @@ for reccord in db.journal.find({"tp": "GENESIS", "slp_type": "aslp1"}):
         lambda v, de=reccord.get('de', 0): Decimal128(f"%.{de}f" % v)
 
 
+def set_legit(ids, value=True):
+    value = bool(value)
+    db.journal.update_one(ids, {'$set': {"legit": value}})
+    return value
+
+
 def add_reccord(height, index, txid, slp_type, emitter, receiver, cost, **kw):
     """
     Add a reccord in the journal.
@@ -56,9 +62,16 @@ def add_reccord(height, index, txid, slp_type, emitter, receiver, cost, **kw):
         [k, v] for k, v in kw.items()
         if k in "tp,id,de,qt,sy,na,du,no,pa,mi,ch,dt"
     )
+
+    if kw.get("tp", "") == "GENESIS":
+        fields.update(pa=kw.get("pa", False))
+        if slp_type.endswith("1"):
+            fields.update(mi=kw.get("mi", False))
+
     if not slp.validate(**fields):
         slp.LOG.error("field validation did not pass")
         return False
+
     try:
         db.journal.insert_one(
             dict(
@@ -70,7 +83,39 @@ def add_reccord(height, index, txid, slp_type, emitter, receiver, cost, **kw):
     except Exception as error:
         slp.LOG.error("%r\n%s", error, traceback.format_exc())
         return False
+
     return True
+
+
+def upsert_contract(tokenId, **values):
+    try:
+        db.contracts.update_one(
+            {"tokenId": tokenId}, {"$set": dict(
+                [k, v] for k, v in values.items()
+                if k in "height,index,type,name,owner,globalSupply,paused"
+            )},
+            upsert=True
+        )
+    except Exception as error:
+        slp.LOG.error("%r\n%s", error, traceback.format_exc())
+        return False
+    return True
+
+
+def upsert_wallet(address, tokenId, **values):
+    try:
+        db.wallets.update_one(
+            {"tokenId": tokenId, "address": address}, {"$set": dict(
+                [k, v] for k, v in values.items()
+                if k in "lastUpdate,balance,owner,frozen"
+            )},
+            upsert=True
+        )
+    except Exception as error:
+        slp.LOG.error("%r\n%s", error, traceback.format_exc())
+        return False
+    return True
+    pass
 
 
 def select_peers():

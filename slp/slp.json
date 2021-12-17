@@ -23,8 +23,8 @@
     "webhook peer": "http://127.0.0.1:4004",
     "api peer": "https://api.ark.io",
 
-    "per token cost": {
-        "aslp1": 1,
-        "aslp2": 100
+    "GENESIS cost": {
+        "aslp1": 100000000,
+        "aslp2": 100000000
     }
 }
