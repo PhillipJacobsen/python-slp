@@ -23,8 +23,11 @@ VALIDATION = {
     "de": lambda value: 0 <= value <= 8,
     "sy": lambda value: re.match(r"^[0-9a-zA-Z]{3,8}$", value) is not None,
     "na": lambda value: re.match(r"^.{3,24}$", value) is not None,
-    "du": lambda value: value == "" or re.match(
-        r"(https?|ipfs|ipns|dweb):\/\/[a-z0-9\/:%_+.,#?!@&=-]{3,27}", value
+    "du": lambda value: (value == "") or (
+        re.match(
+            r"(https?|ipfs|ipns|dweb):\/\/[a-z0-9\/:%_+.,#?!@&=-]{3,180}",
+            value
+        )
     ) is not None,
     "no": lambda value: re.match(r"^.{0,180}$", value) is not None,
     "pa": lambda value: value in [True, False, 0, 1],
