@@ -11,6 +11,7 @@ import traceback
 import threading
 import importlib
 
+from decimal import Decimal
 from slp import serde, dbapi
 from usrv import req
 
@@ -117,7 +118,7 @@ def read_vendorField(vendorField):
             contract = serde.unpack_slp(vendorField)
         except Exception:
             pass
-    return contract
+    return False if not isinstance(contract, dict) else contract
 
 
 def manage_block(**request):
@@ -163,7 +164,7 @@ def parse_block(block):
                 if "de" in fields:
                     fields["de"] = int(fields["de"])
                 if "qt" in fields:
-                    fields["qt"] = int(fields["qt"])
+                    fields["qt"] = Decimal(fields["qt"])
                 # dbapi.add_reccord returns False if reccord already in
                 # journal.
                 if dbapi.add_reccord(
@@ -178,7 +179,6 @@ def parse_block(block):
                     tx["id"], block["height"], contract
                 )
                 slp.LOG.error("%r\n%s" % (error, traceback.format_exc()))
-
     return True
 
 
@@ -208,7 +208,7 @@ class Chainer(threading.Thread):
                 if module not in sys.modules:
                     importlib.__import__(module)
                 slp.LOG.info(
-                    "Contract execution:\n<-%s\n->%s",
+                    "Contract execution:\n<- %s\n-> %s",
                     contract,
                     sys.modules[module].manage(contract)
                 )
