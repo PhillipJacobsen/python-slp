@@ -18,12 +18,6 @@ db = MongoClient(slp.JSON.get("mongo url", None))[slp.JSON["database name"]]
 # --- databases ---
 db.journal.create_index([("height", 1), ("index", 1)], unique=True)
 db.contracts.create_index("tokenId", unique=True)
-# --- states ---
-db.wallets.create_index(
-    [("address", 'text'), ("tokenId", 'text')],
-    unique=True
-)
-db.supply.create_index("tokenId", unique=True)
 # ---
 
 # Build Decimal128 reccords
@@ -32,9 +26,9 @@ for reccord in db.journal.find({"tp": "GENESIS", "slp_type": "aslp1"}):
         lambda v, de=reccord.get('de', 0): Decimal128(f"%.{de}f" % v)
 
 
-def set_legit(ids, value=True):
+def set_legit(filter, value=True):
     value = bool(value)
-    db.journal.update_one(ids, {'$set': {"legit": value}})
+    db.journal.update_one(filter, {'$set': {"legit": value}})
     return value
 
 
@@ -87,35 +81,60 @@ def add_reccord(height, index, txid, slp_type, emitter, receiver, cost, **kw):
     return True
 
 
-def upsert_contract(tokenId, **values):
+def upsert_contract(tokenId, values):
     try:
-        db.contracts.update_one(
-            {"tokenId": tokenId}, {"$set": dict(
-                [k, v] for k, v in values.items()
-                if k in "height,index,type,name,owner,globalSupply,paused"
-            )},
-            upsert=True
-        )
+        query = {"tokenId": tokenId}
+        update = {"$set": dict(
+            [k, v] for k, v in values.items()
+            if k in "tokenId,height,index,type,name,owner,"
+                    "globalSupply,paused,minted,burned"
+        )}
+        db.contracts.update_one(query, update)
     except Exception as error:
         slp.LOG.error("%r\n%s", error, traceback.format_exc())
         return False
     return True
 
 
-def upsert_wallet(address, tokenId, **values):
+def find_contract(**filter):
+    return db.contracts.find_one(filter)
+
+
+def upsert_wallet(address, tokenId, values):
     try:
-        db.wallets.update_one(
-            {"tokenId": tokenId, "address": address}, {"$set": dict(
-                [k, v] for k, v in values.items()
-                if k in "lastUpdate,balance,owner,frozen"
-            )},
-            upsert=True
-        )
+        query = {"tokenId": tokenId, "address": address}
+        update = {"$set": dict(
+            [k, v] for k, v in values.items()
+            if k in "address,tokenId,lastUpdate,balance,owner,frozen"
+        )}
+        db.wallets.update_one(query, update)
     except Exception as error:
         slp.LOG.error("%r\n%s", error, traceback.format_exc())
         return False
     return True
-    pass
+
+
+def find_wallet(**filter):
+    return db.wallets.find_one(filter)
+
+
+def exchange_token(tokenId, sender, receiver, qt):
+    _sender = db.wallets.find_one({"address": sender, "tokenId": tokenId})
+    _receiver = db.wallets.find_one({"address": receiver, "tokenId": tokenId})
+
+    if _receiver and _sender:
+        if upsert_wallet(
+            receiver, tokenId, {"balance": Decimal128("%s" % qt)}
+        ):
+            return upsert_wallet(
+                sender, tokenId, {
+                    "balance":
+                        Decimal128(
+                            "%s" % (_sender["balance"].to_decimal() - qt)
+                        )
+                }
+            )
+    return False
 
 
 def select_peers():
@@ -125,8 +144,6 @@ def select_peers():
         orderBy="height:desc",
         headers=slp.HEADERS
     ).get("data", [])
-    highest = max([c["height"] for c in candidates])
-    candidates = sorted(candidates, key=lambda e: highest-e["height"])
     for candidate in candidates[:20]:
         api_port = candidate.get("ports", {}).get(
             "@arkecosystem/core-api", -1
@@ -159,11 +176,13 @@ class Processor(threading.Thread):
         peers = select_peers()
         peer = random.choice(peers)
 
-        last_mark = slp.loadJson("processor.mark", ".json")
         start_height = max(
             min(slp.JSON["milestones"].values()),
-            last_mark.get("last parsed block", 0)
+            slp.loadJson("processor.mark", ".json").get("last parsed block", 0)
         )
+        last_reccord = list(db.journal.find().sort("height", -1).limit(1))
+        if len(last_reccord):
+            start_height = last_reccord[0]["height"]
 
         if start_height == 0:
             try:
