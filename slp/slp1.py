@@ -10,25 +10,29 @@ from bson import Decimal128
 
 def manage(contract):
     try:
+        assert contract.get("legit", False) is None
         return getattr(
             sys.modules[__name__], "apply_%s" % contract["tp"].lower()
         )(contract)
+    except AssertionError:
+        slp.LOG.error("Contract %s already applied", contract)
     except AttributeError:
         slp.LOG.error("Unknown contract type %s", contract["tp"])
 
 
 def apply_genesis(contract):
+    tokenId = contract["id"]
     try:
         # initial quantity should avoid decimal part
         assert contract["qt"] % 1 == 0
+        # blockchain transaction amount have to match GENESIS cost
         assert contract["cost"] >= slp.JSON["GENESIS cost"]["aslp1"]
+        # contract have to be sent to master address
         assert contract["receiver"] == slp.JSON["master address"]
     except AssertionError:
         line = traceback.format_exc().split("\n")[-3].strip()
         slp.LOG.error("invalid contract: %s\n%s", line, contract)
         return dbapi.set_legit(contract, False)
-
-    tokenId = contract["id"]
     # add Decimal128 for accounting precision
     slp.DECIMAL128[tokenId] = \
         lambda v, de=contract.get('de', 0): \
@@ -36,20 +40,27 @@ def apply_genesis(contract):
     qt = slp.DECIMAL128[tokenId](contract["qt"])
     # add contract
     check = [
-        dbapi.upsert_contract(
-            tokenId,
-            height=contract["height"], index=contract["index"], type="aslp1",
-            name=contract["na"], owner=contract["emitter"], globalSupply=qt,
-            paused=False,
+        dbapi.db.contracts.insert_one(
+            dict(
+                tokenId=tokenId, height=contract["height"],
+                index=contract["index"], type="aslp1", name=contract["na"],
+                owner=contract["emitter"], globalSupply=qt, paused=False,
+                minted=slp.DECIMAL128[tokenId](0.),
+                burned=slp.DECIMAL128[tokenId](0.),
+                exited=slp.DECIMAL128[tokenId](0.)
+            )
         )
     ]
     # add owner ballance if not mintable
     if not contract.get("mi", False):
+        check.append(dbapi.upsert_contract(dict(tokenId=tokenId, minted=qt)))
         check.append(
-            dbapi.upsert_wallet(
-                contract["emitter"], tokenId,
-                lastUpdate=f"{contract['height']}#{contract['index']}",
-                balance=qt, owner=True, frozen=False
+            dbapi.db.wallets.insert_one(
+                dict(
+                    address=contract["emitter"], tokenId=tokenId,
+                    lastUpdate=f"{contract['height']}#{contract['index']}",
+                    balance=qt, owner=True, frozen=False
+                )
             )
         )
     # set contract as legit if no Errors
@@ -57,19 +68,149 @@ def apply_genesis(contract):
 
 
 def apply_burn(contract):
-    return True or False
+    tokenId = contract["id"]
+    try:
+        assert contract["qt"] % 1 == 0
+        assert contract["receiver"] == slp.JSON["master address"]
+        token = dbapi.find_contract(**{"tokenId": tokenId})
+        owner = dbapi.find_wallet(
+            **dict(address=contract["emitter"], tokenId=tokenId)
+        )
+        # token and owner exists
+        assert token and owner
+        # emitter is realy the owner
+        assert owner.get("owner", False) is True
+        # token not paused by owner
+        assert token.get("paused", False) is False
+        # owner may burn only from his balance
+        assert owner["balance"].to_decimal() >= contract["qt"]
+    except AssertionError:
+        line = traceback.format_exc().split("\n")[-3].strip()
+        slp.LOG.error("invalid contract: %s\n%s", line, contract)
+        return dbapi.set_legit(contract, False)
+    else:
+        new_balance = Decimal128(
+            "%s" % (owner["balance"].to_decimal() - contract["qt"])
+        )
+        return dbapi.set_legit(
+            contract, dbapi.upsert_wallet(
+                contract["emitter"], tokenId, dict(
+                    lastUpdate=f"{contract['height']}#{contract['index']}",
+                    balance=new_balance
+                )
+            )
+        )
 
 
 def apply_mint(contract):
-    return True or False
+    tokenId = contract["id"]
+    try:
+        assert contract["qt"] % 1 == 0
+        assert contract["receiver"] == slp.JSON["master address"]
+        token = dbapi.find_contract(**{"tokenId": tokenId})
+        owner = dbapi.find_wallet(
+            **dict(address=contract["emitter"], tokenId=tokenId)
+        )
+        # token and owner exists
+        assert token and owner
+        # owner is realy the owner
+        assert owner.get("owner", False) is True
+        # token not paused by owner
+        assert token.get("paused", False) is False
+        # owner may mint accourding to global supply limit
+        assert (
+            token["burned"].to_decimal() + token["minted"].to_decimal() +
+            token["exited"].to_decimal()
+        ) < token["globalSupply"].to_decimal()
+    except AssertionError:
+        line = traceback.format_exc().split("\n")[-3].strip()
+        slp.LOG.error("invalid contract: %s\n%s", line, contract)
+        return dbapi.set_legit(contract, False)
+    else:
+        new_balance = Decimal128(
+            "%s" % (owner["balance"].to_decimal() + contract["qt"])
+        )
+        return dbapi.set_legit(
+            contract, dbapi.upsert_wallet(
+                contract["emitter"], tokenId, dict(
+                    lastUpdate=f"{contract['height']}#{contract['index']}",
+                    balance=new_balance
+                )
+            )
+        )
 
 
 def apply_send(contract):
-    return True or False
+    tokenId = contract["id"]
+    try:
+        token = dbapi.find_contract(**{"tokenId": tokenId})
+        emitter = dbapi.find_wallet(
+            **dict(address=contract["emitter"], tokenId=tokenId)
+        )
+        # token and emitter exists
+        assert token and emitter
+        # token not paused by owner
+        assert token.get("paused", False) is False
+        # emitter not frozen by owner
+        assert emitter.get("frozen", False) is False
+        # emitter balance is okay
+        assert emitter["balance"].to_decimal() > contract["qt"]
+        # receiver is a valid address
+        # chain.is_valid_address(contract["receiver"])
+    except AssertionError:
+        line = traceback.format_exc().split("\n")[-3].strip()
+        slp.LOG.error("invalid contract: %s\n%s", line, contract)
+        return dbapi.set_legit(contract, False)
+    else:
+        receiver = dbapi.find_wallet(
+            **dict(address=contract["receiver"], tokenId=tokenId)
+        )
+        if receiver is None:
+            dbapi.db.wallets.insert_one(
+                dict(
+                    address=contract["receiver"], tokenId=tokenId,
+                    lastUpdate=f"{contract['height']}#{contract['index']}",
+                    balance=slp.DECIMAL128[tokenId](0.), owner=False,
+                    frozen=False
+                )
+            )
+        return dbapi.set_legit(
+            contract, dbapi.exchange_token(
+                tokenId, contract["emitter"], contract["receiver"],
+                contract["qt"]
+            )
+        )
 
 
 def apply_freeze(contract):
-    return True or False
+    tokenId = contract["id"]
+    try:
+        token = dbapi.find_contract(**{"tokenId": tokenId})
+        owner = dbapi.find_wallet(
+            **dict(address=contract["emitter"], tokenId=tokenId)
+        )
+        receiver = dbapi.find_wallet(
+            **dict(address=contract["receiver"], tokenId=tokenId)
+        )
+        # token and owner exists
+        assert token and owner
+        # owner is realy the owner
+        assert owner.get("owner", False) is True
+        # receiver is not already frozen
+        assert receiver.get("frozen", False) is False
+    except AssertionError:
+        line = traceback.format_exc().split("\n")[-3].strip()
+        slp.LOG.error("invalid contract: %s\n%s", line, contract)
+        return dbapi.set_legit(contract, False)
+    else:
+        return dbapi.set_legit(
+            contract, dbapi.upsert_wallet(
+                contract["receiver"], tokenId, dict(
+                    lastUpdate=f"{contract['height']}#{contract['index']}",
+                    frozen=True
+                )
+            )
+        )
 
 
 def apply_unfreeze(contract):
@@ -86,136 +227,3 @@ def apply_pause(contract):
 
 def apply_resume(contract):
     return True or False
-
-
-                # # `legit` is set to None (ie have to be applied next)
-                # # if tx amount okay else False (ie will not be applied)
-                # legit = None if (
-                #     cost <= int(tx["amount"]) and (
-                #         tx["recipientId"] == slp.JSON["master wallet"]
-                #         if fields["tp"] != "SEND" else True
-                #     )
-                # ) else False
-#                     # cost = slp.JSON["per token cost"][slp_type] * fields["qt"]
-# def get_token_supply(tokenId):
-#     supply = db.supply.find_one({"tokenId": tokenId})
-#     return supply or {"error": "no contract found for tokenId %s" % tokenId}
-
-
-# def transfer_token(tokenId, address, qt):
-#     wallet = db.wallets.find_one({"address": address, "tokenId": tokenId})
-#     if wallet:
-#         db.wallets.update_one(wallet, {"$inc": {"balance": qt}})
-#     else:
-#         db.wallets.insert_one({
-#             "tokenId": tokenId, "address": address, "balance": qt
-#         })
-
-# def add_slp1_contract(emitter, id, na, sy, qt, de, no, du, pa=False, mi=False):
-#     contract = dict(
-#         tokenId=id, owner=emitter, slpType="slp1",
-#         name=na, symbol=sy, notes=no, uri=du,
-#         globalSupply=qt, decimals=de,
-#         pausable=pa, mintable=mi
-#     )
-
-#     try:
-#         quantity = slp.Quantity(qt, de=de)
-#         db.contrats.insert_one(contract)
-#         db.supply.insert_one(
-#             {"tokenId": id}, {
-#                 "tokenId": id, "exchanged": 0,
-#                 "minted": 0 if mi else quantity.q, "burned": 0,
-#                 "frozen": False
-#             }
-#         )
-#         if not mi:
-#             transfer_token(id, emitter, qt)
-#     except Exception as error:
-#         slp.LOG.error("%r\n%s", error, traceback.format_exc())
-#         return False
-#     return True
-
-
-# def mint(height, timestamp, owner, id, qt):
-#     contract = db.contracts.find({"tokenId": id})
-#     if contract:
-#         transfer_token(id, owner, qt.q)
-#         db.accountings.insert_one(
-#             dict(
-#                 height=height, timestamp=timestamp, tokenId=id,
-#                 address=owner, minted=qt.q
-#             )
-#         )
-#     return {"error": "no contract found for tokenId %s" % id}
-
-
-# # def swap(height, timestamp, tokenId, sender, recipient, qt: slp.Quantity):
-# #     quantity = qt.q
-# #     sender = db.wallets.find_one(address=sender, tokenId=tokenId)
-# #     if sender.get("balance", 0) >= quantity:
-# #         # update wallet state
-# #         db.wallets.update(sender, {'$inc': {"balance": -quantity}})
-# #         transfer_token(tokenId, recipient, qt)
-# #         # reccord transaction in accountings
-# #         return db.accountings.insert_many(
-# #             [
-# #                 dict(
-# #                     height=height, timestamp=timestamp, tokenId=tokenId,
-# #                     address=sender, exchanged=-quantity
-# #                 ),
-# #                 dict(
-# #                     height=height, timestamp=timestamp, tokenId=tokenId,
-# #                     address=recipient, exchanged=quantity
-# #                 )
-# #             ]
-# #         )
-# #     return False
-
-
-# # def burn(height, timestamp, owner, tokenId, qt: slp.Quantity):
-# #     return db.accountings.insert_one(
-# #         dict(
-# #             height=height, timestamp=timestamp, tokenId=tokenId,
-# #             address=owner, burned=qt.q
-# #         )
-# #     )
-
-
-# # def freeze(tokenId):
-# #     return db.supply.find_one_and_update(
-# #         {"tokenId": tokenId},
-# #         {"frozen", True}
-# #     )
-
-
-# # def unfreeze(tokenId):
-# #     return db.supply.find_one_and_update(
-# #         {"tokenId": tokenId},
-# #         {"frozen", False}
-# #     )
-
-
-# # def apply_input(msg):
-# #     if not slp.BLOCKCHAIN_NODE:
-# #         node.send_message({
-# #             "confirm": dict(
-# #                 msg["input"], **{"from": f"http://{slp.PUBLIC_IP}:{slp.PORT}"}
-# #             )
-# #         })
-# #     else:
-# #         # apply contract to database
-# #         pass
-
-
-# # def apply_confirm(msg):
-# #     pass
-
-
-# # def validate(contract):
-# #     supply = db.supply.find(tokenId=contract["tokenId"])
-# #     if supply.count() == 1:
-# #         if not supply["frozen"]:
-# #             #if is_legit(contract):
-# #                 return contract
-# #     return False
