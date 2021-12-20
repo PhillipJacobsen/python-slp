@@ -3,6 +3,7 @@
 import slp
 import queue
 import random
+import decimal
 import threading
 import traceback
 
@@ -17,10 +18,11 @@ from bson.decimal128 import Decimal128
 db = MongoClient(slp.JSON.get("mongo url", None))[slp.JSON["database name"]]
 # --- databases ---
 db.journal.create_index([("height", 1), ("index", 1)], unique=True)
+db.rejected.create_index([("height", 1), ("index", 1)], unique=True)
 db.contracts.create_index("tokenId", unique=True)
 # ---
 
-# Build Decimal128 reccords
+# Build Decimal128 builders for all aslp1 token
 for reccord in db.journal.find({"tp": "GENESIS", "slp_type": "aslp1"}):
     slp.DECIMAL128[reccord["id"]] = \
         lambda v, de=reccord.get('de', 0): Decimal128(f"%.{de}f" % v)
@@ -30,6 +32,18 @@ def set_legit(filter, value=True):
     value = bool(value)
     db.journal.update_one(filter, {'$set': {"legit": value}})
     return value
+
+
+def blockstamp_cmp(a, b):
+    """
+    Blockstamp comparison. Returns True if a higher than b.
+    """
+    height_a, index_a = [int(e) for e in a.split("#")]
+    height_b, index_b = [int(e) for e in b.split("#")]
+    return \
+        False if height_a < height_b else \
+        False if index_a <= index_b else \
+        True
 
 
 def add_reccord(height, index, txid, slp_type, emitter, receiver, cost, **kw):
@@ -48,13 +62,10 @@ def add_reccord(height, index, txid, slp_type, emitter, receiver, cost, **kw):
 
     Returns:
         bool: `True` if success else `False`.
-
-    Raises:
-        Exception if reccord already in journal.
     """
     fields = dict(
         [k, v] for k, v in kw.items()
-        if k in "tp,id,de,qt,sy,na,du,no,pa,mi,ch,dt"
+        if k in slp.JSON["slp fields"]
     )
 
     if kw.get("tp", "") == "GENESIS":
@@ -64,21 +75,34 @@ def add_reccord(height, index, txid, slp_type, emitter, receiver, cost, **kw):
 
     if not slp.validate(**fields):
         slp.LOG.error("field validation did not pass")
+        slp.dumpJson(
+            dict(
+                slp.loadJson(f"unvalidated.{slp_type}", ".json"),
+                **{f"{height}#{index}": fields}
+            ), f"unvalidated.{slp_type}", ".json"
+        )
         return False
 
     try:
-        db.journal.insert_one(
-            dict(
-                height=height, index=index, txid=txid,
-                slp_type=slp_type, emitter=emitter, receiver=receiver,
-                cost=cost, legit=None, **fields
-            )
+        contract = dict(
+            height=height, index=index, txid=txid,
+            slp_type=slp_type, emitter=emitter, receiver=receiver,
+            cost=cost, legit=None, **fields
         )
+        db.journal.insert_one(contract)
     except Exception as error:
         slp.LOG.error("%r\n%s", error, traceback.format_exc())
         return False
+    else:
+        return contract
 
-    return True
+
+def find_contract(**filter):
+    return db.contracts.find_one(filter)
+
+
+def find_wallet(**filter):
+    return db.wallets.find_one(filter)
 
 
 def upsert_contract(tokenId, values):
@@ -96,44 +120,64 @@ def upsert_contract(tokenId, values):
     return True
 
 
-def find_contract(**filter):
-    return db.contracts.find_one(filter)
-
-
 def upsert_wallet(address, tokenId, values):
+    wallet = find_wallet(**{"tokenId": tokenId, "address": address})
     try:
-        query = {"tokenId": tokenId, "address": address}
+        # wallet exists
+        assert wallet is not None
+        # blockstamp higher than last upsertion
+        assert blockstamp_cmp(
+            values.get("blockStamp", "0#0"), wallet["blockStamp"]
+        )
         update = {"$set": dict(
             [k, v] for k, v in values.items()
-            if k in "address,tokenId,lastUpdate,balance,owner,frozen"
+            if k in "address,tokenId,blockStamp,balance,owner,frozen"
         )}
-        db.wallets.update_one(query, update)
+        db.wallets.update_one(wallet, update)
+    except AssertionError:
+        slp.LOG.error(
+            "%s does not exist or blockstamp %s lower than %s",
+            wallet, values.get("blockStamp", "0#0"), wallet["blockStamp"]
+        )
+        return False
     except Exception as error:
         slp.LOG.error("%r\n%s", error, traceback.format_exc())
         return False
     return True
 
 
-def find_wallet(**filter):
-    return db.wallets.find_one(filter)
+def exchange_token(tokenId, blockstamp, sender, receiver, qt):
+    _sender = find_wallet(address=sender, tokenId=tokenId)
+    _decimal128 = slp.DECIMAL128[tokenId]
+    qt = decimal.Decimal(qt)
 
+    if _sender:
+        _receiver = find_wallet(address=receiver, tokenId=tokenId)
+        if _receiver is None:
+            db.wallets.insert_one(
+                dict(
+                    address=receiver, tokenId=tokenId, blockStamp="0#0",
+                    balance=_decimal128(0.), owner=False, frozen=False
+                )
+            )
+            new_balance = qt
+        else:
+            new_balance = _receiver["balance"].to_decimal() + qt
 
-def exchange_token(tokenId, sender, receiver, qt):
-    _sender = db.wallets.find_one({"address": sender, "tokenId": tokenId})
-    _receiver = db.wallets.find_one({"address": receiver, "tokenId": tokenId})
-
-    if _receiver and _sender:
         if upsert_wallet(
-            receiver, tokenId, {"balance": Decimal128("%s" % qt)}
+            receiver, tokenId, {
+                "blockStamp": blockstamp,
+                "balance": _decimal128(new_balance)
+            }
         ):
             return upsert_wallet(
                 sender, tokenId, {
+                    "blockStamp": blockstamp,
                     "balance":
-                        Decimal128(
-                            "%s" % (_sender["balance"].to_decimal() - qt)
-                        )
+                        _decimal128(_sender["balance"].to_decimal() - qt)
                 }
             )
+
     return False
 
 
@@ -167,30 +211,29 @@ class Processor(threading.Thread):
 
     @staticmethod
     def stop():
-        Processor.STOP.set()
+        try:
+            Processor.LOCK.release()
+        except Exception:
+            pass
+        finally:
+            Processor.STOP.set()
 
     def run(self):
         timeout = req.EndPoint.timeout
         req.EndPoint.timeout = 30
-
+        # load last processing mark if any
+        mark = slp.loadJson("processor.mark", ".json")
         peers = select_peers()
-        peer = random.choice(peers)
-
+        # get last good peer if any else choose a random one
+        peer = mark.get("peer", random.choice(peers))
+        # determine where to start
         start_height = max(
             min(slp.JSON["milestones"].values()),
-            slp.loadJson("processor.mark", ".json").get("last parsed block", 0)
+            mark.get("last parsed block", 0)
         )
         last_reccord = list(db.journal.find().sort("height", -1).limit(1))
         if len(last_reccord):
-            start_height = last_reccord[0]["height"]
-
-        if start_height == 0:
-            try:
-                start_height = db.journal.find(
-                    {"$query": {}, "$orderby": {"_id": -1}}
-                ).limit(1).next().get("height", 0)
-            except StopIteration:
-                start_height = 0
+            start_height = max(last_reccord[0]["height"], start_height)
 
         block_per_page = 100
         page = start_height // block_per_page - 1
@@ -209,10 +252,7 @@ class Processor(threading.Thread):
                 )
 
                 if blocks.get("status", False) == 200:
-                    slp.dumpJson(
-                        {"last parsed block": blocks["data"][-1]["height"]},
-                        "processor.mark", ".json"
-                    )
+                    mark = {"peer": peer}
 
                     if blocks.get("meta", {}).get("next", False) is None:
                         slp.LOG.info("End of blocks reached")
@@ -230,19 +270,21 @@ class Processor(threading.Thread):
                     if len(blocks):
                         for block in blocks:
                             chain.parse_block(block)
+                            mark["last parsed block"] = block["height"]
+                            slp.dumpJson(mark, "processor.mark", ".json")
 
                     page += 1
 
                 else:
                     slp.LOG.info("No block from %s", peer)
-                    peers.remove(peer)
                     if len(peers) == 1:
                         peers = select_peers()
+                    if peer in peers:
+                        peers.remove(peer)
                     peer = random.choice(peers)
 
             except Exception as error:
                 slp.LOG.error("%r\n%s", error, traceback.format_exc())
-                Processor.stop()
 
         req.EndPoint.timeout = timeout
         slp.LOG.info("Processor %d task exited", id(self))
