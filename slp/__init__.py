@@ -35,7 +35,6 @@ VALIDATION = {
     "ch": lambda value: isinstance(value, int),
     "dt": lambda value: re.match(r"^.{0,256}$", value) is not None
 }
-
 HEADERS = {
     "API-Version": "3",
     "Content-Type": "application/json",
@@ -72,7 +71,7 @@ def set_public_ip():
 def is_blockchain_node():
     global BLOCKCHAIN_NODE
     return os.path.exists(
-        os.path.expanduser("~/.config/")
+        os.path.expanduser("~/.config/ark-core")
     )
 
 

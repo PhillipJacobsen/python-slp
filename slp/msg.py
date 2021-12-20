@@ -91,8 +91,12 @@ class Messenger(threading.Thread):
 
     @staticmethod
     def stop():
-        Messenger.LOCK.release()
-        Messenger.STOP.set()
+        try:
+            Messenger.LOCK.release()
+        except Exception:
+            pass
+        finally:
+            Messenger.STOP.set()
 
     def run(self):
         # controled infinite loop
@@ -108,4 +112,3 @@ class Messenger(threading.Thread):
                         node.manage_hello(msg)
             except Exception as error:
                 slp.LOG.error("%r\n%s", error, traceback.format_exc())
-                # Messenger.LOCK.release()

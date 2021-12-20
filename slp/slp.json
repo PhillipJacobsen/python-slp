@@ -1,11 +1,8 @@
 {
     "master address": "ARKQXzHvEWXgfCgAcJWJQKUMus5uE6Yckr",
 
+    "slp fields": "tp,id,de,qt,sy,na,du,no,pa,mi,ch,dt",
     "slp types": ["aslp1", "aslp2"],
-    "milestones": {
-        "aslp1": 17891337,
-        "aslp2": 17891337
-    },
 
     "input types": {
         "GENESIS": 0,
@@ -17,14 +14,19 @@
         "CLONE": 13
     },
 
-    "serialized regex": "^(aslp[0-9]{1})://(.*)$",
-
-    "database name": "slp_database",  
-    "webhook peer": "http://127.0.0.1:4004",
-    "api peer": "https://api.ark.io",
+    "serialized regex": "^(aslp[0-9]+)://(.*)$",
 
     "GENESIS cost": {
         "aslp1": 100000000,
         "aslp2": 100000000
-    }
+    },
+
+    "milestones": {
+        "aslp1": 17891337,
+        "aslp2": 17891337
+    },
+
+    "database name": "slp_node",
+    "webhook peer": "http://127.0.0.1:4004",
+    "api peer": "https://api.ark.io"
 }

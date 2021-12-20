@@ -2,3 +2,4 @@
 *.bak
 *.mark
 .db/
+.json/
