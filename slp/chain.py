@@ -1,5 +1,36 @@
 # -*- coding:utf-8 -*-
 
+"""
+`chain` module is designed to manage webhook subscription with blockchain and
+process validated blocks. Idea here is to extract SLP smartbridge transactions
+and embed it in a Mongo DB document.
+
+Document structure:
+
+name|description|type
+-|-|-
+height|transaction block height|unsigned long long
+index|transaction index in block|short
+txid|transaction id|hexidecimal
+slp_type|SLP contract type|string
+emitter|sender wallet address|base58
+receiver|receiver wallet address|base58
+cost|transaction amount|unsigned long long
+tx|blockchain transaction id|hexadecimal
+tp|type of action|string
+id|token ID|hexidecimal
+de|decimal places|short: 0..8
+qt|quantity|unsigned long long
+sy|symbol / ticker|string
+na|token name|string
+du|document URI|string (`ipfs://` scheme)
+no|notes|string
+pa|pausable|boolean: Default false
+mi|mintable|boolean: Default false
+ch|smartbridge chunck|short
+dt|data|string
+"""
+
 import os
 import sys
 import slp
@@ -11,7 +42,6 @@ import traceback
 import threading
 import importlib
 
-from decimal import Decimal
 from slp import serde, dbapi
 from usrv import req
 
@@ -122,6 +152,9 @@ def read_vendorField(vendorField):
 
 
 def manage_block(**request):
+    """
+    Dispatch webhook request.
+    """
     # webhook security check
     auth = request.get("headers", {}).get("authorization", "?")
     if not check_webhook_token(auth):
@@ -135,6 +168,10 @@ def manage_block(**request):
 
 
 def parse_block(block):
+    """
+    Search valid SLP vendor fields in all transactions from specified block.
+    If any, it is normalized and registered as a rreccord in journal.
+    """
     # get transactions from block
     tx_list = get_block_transactions(block["id"])
     loop = zip(list(range(len(tx_list))), tx_list)
@@ -147,38 +184,41 @@ def parse_block(block):
         # try to read contract from vendor field
         contract = read_vendorField(tx["vendorField"])
         if contract:
-            slp.LOG.info("> SLP vendorField found:\n%s", contract)
             try:
                 slp_type, fields = list(contract.items())[0]
+                slp.LOG.info(
+                    "> SLP contract found: %s->%s", slp_type, fields["tp"]
+                )
                 # compute token id for GENESIS contracts
                 if fields["tp"] == "GENESIS":
-                    tokenId = get_token_id(
+                    fields.update(id=get_token_id(
                         slp_type, fields["sy"], block["height"], tx["id"]
-                    )
-                    fields.update(id=tokenId)
+                    ))
                 # add wallets information and cost
                 fields.update(
                     emitter=tx["sender"], receiver=tx["recipient"],
                     cost=int(tx["amount"])
                 )
+                # tweak numeric values
                 if "de" in fields:
                     fields["de"] = int(fields["de"])
                 if "qt" in fields:
-                    fields["qt"] = Decimal(fields["qt"])
-                # dbapi.add_reccord returns False if reccord already in
-                # journal.
-                if dbapi.add_reccord(
+                    fields["qt"] = float(fields["qt"])
+                # add a new reccord in journal
+                reccord = dbapi.add_reccord(
                     block["height"], index, tx["id"], slp_type, **fields
-                ):
-                    slp.LOG.info("Document %s added to journal", fields)
+                )
+                # -
+                if reccord is not False:
+                    slp.LOG.info("Document %s added to journal", reccord)
                     # send contract application as job
-                    Chainer.JOB.put([slp_type, fields])
+                    Chainer.JOB.put(reccord)
             except Exception as error:
                 slp.LOG.info(
-                    "Error occured with tx %s in block %d: vendorField=%s",
-                    tx["id"], block["height"], contract
+                    "Error occured with tx %s in block %d",
+                    tx["id"], block["height"]
                 )
-                slp.LOG.error("%r\n%s" % (error, traceback.format_exc()))
+                slp.LOG.error("%r\n%s", error, traceback.format_exc())
     return True
 
 
@@ -196,25 +236,36 @@ class Chainer(threading.Thread):
 
     @staticmethod
     def stop():
-        Chainer.LOCK.release()
-        Chainer.STOP.set()
+        try:
+            Chainer.LOCK.release()
+        except Exception:
+            pass
+        finally:
+            Chainer.STOP.set()
 
-    def run(self):
+    def run(self, debug=False):
         # controled infinite loop
         while not Chainer.STOP.is_set():
             try:
-                slp_type, contract = Chainer.JOB.get()
-                module = f"slp.{slp_type[1:]}"
+                reccord = Chainer.JOB.get()
+                module = f"slp.{reccord['slp_type'][1:]}"
                 if module not in sys.modules:
                     importlib.__import__(module)
-                slp.LOG.info(
-                    "Contract execution:\n<- %s\n-> %s",
-                    contract,
-                    sys.modules[module].manage(contract)
-                )
+                execution = sys.modules[module].manage(reccord)
+                slp.LOG.info("Contract execution: -> %s", execution)
+                if not execution:
+                    dbapi.db.rejected.insert_one(reccord)
+                    if debug:
+                        raise Exception("Debug stop !")
+                else:
+                    # broadcast to peers ?
+                    pass
             except ImportError:
                 slp.LOG.info(
-                    "No modules found to handle '%s' contracts", slp_type
+                    "No modules found to handle '%s' contracts",
+                    reccord['slp_type']
                 )
             except Exception as error:
+                Chainer.stop()
+                dbapi.Processor.stop()
                 slp.LOG.error("%r\n%s", error, traceback.format_exc())
