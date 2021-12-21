@@ -201,43 +201,49 @@ def apply_send(contract):
         )
 
 
+def apply_newowner(contract):
+    tokenId = contract["id"]
+    try:
+        # TOKEN check ---
+        token = dbapi.find_contract(tokenId=tokenId)
+        # token exists
+        assert token is not None
+        # EMITTER check ---
+        emitter = dbapi.find_wallet(
+            address=contract["emitter"], tokenId=tokenId
+        )
+        # emitter exists
+        assert emitter is not None
+        # emitter is realy the owner
+        assert emitter.get("owner", False) is True
+        # RECEIVER check ---
+        receiver = dbapi.find_wallet(
+            address=contract["receiver"], tokenId=tokenId
+        )
+        # receiver is not already frozen
+        if receiver is not None:
+            assert receiver.get("frozen", False) is False
+    except AssertionError:
+        slp.LOG.error("invalid contract: %s", traceback.format_exc())
+        return dbapi.set_legit(contract, False)
+    else:
+        check = [
+            dbapi.exchange_token(
+                tokenId, f"{contract['height']}#{contract['index']}",
+                contract["emitter"], contract["receiver"],
+                emitter["balance"].to_decimal()
+            ),
+            dbapi.upsert_wallet(emitter["address"], tokenId, {"owner": False}),
+            dbapi.upsert_wallet(receiver["address"], tokenId, {"owner": True})
+        ]
+        return dbapi.set_legit(contract, check.count(False) == 0)
+
+
 def apply_freeze(contract):
     return False
-    # tokenId = contract["id"]
-    # try:
-    #     token = dbapi.find_contract(**{"tokenId": tokenId})
-    #     owner = dbapi.find_wallet(
-    #         **dict(address=contract["emitter"], tokenId=tokenId)
-    #     )
-    #     receiver = dbapi.find_wallet(
-    #         **dict(address=contract["receiver"], tokenId=tokenId)
-    #     )
-    #     # token and owner exists
-    #     assert token and owner
-    #     # owner is realy the owner
-    #     assert owner.get("owner", False) is True
-    #     # receiver is not already frozen
-    #     assert receiver.get("frozen", False) is False
-    # except AssertionError:
-    #     line = traceback.format_exc().split("\n")[-3].strip()
-    #     slp.LOG.error("invalid contract: %s\n%s", line, contract)
-    #     return dbapi.set_legit(contract, False)
-    # else:
-    #     return dbapi.set_legit(
-    #         contract, dbapi.upsert_wallet(
-    #             contract["receiver"], tokenId, dict(
-    #                 blockStamp=f"{contract['height']}#{contract['index']}",
-    #                 frozen=True
-    #             )
-    #         )
-    #     )
 
 
 def apply_unfreeze(contract):
-    return False
-
-
-def apply_newowner(contract):
     return False
 
 
