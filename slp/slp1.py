@@ -1,5 +1,9 @@
 # -*- coding:utf-8 -*-
 
+"""
+SLP1 contract execution module.
+"""
+
 import slp
 import sys
 import traceback
@@ -79,89 +83,106 @@ def apply_burn(contract):
         assert contract["receiver"] == slp.JSON["master address"]
         # get contract and wallet
         token = dbapi.find_contract(tokenId=tokenId)
+        # token and wallet exists
+        assert token is not None
+        # token not paused by owner
+        assert token.get("paused", False) is False
         wallet = dbapi.find_wallet(
             address=contract["emitter"], tokenId=tokenId
         )
-        # token and wallet exists
-        assert token is not None
         assert wallet is not None
         # wallet is realy the owner
         assert wallet.get("owner", False) is True
-        # token not paused by owner
-        assert token.get("paused", False) is False
         # owner may burn only from his balance
         assert wallet["balance"].to_decimal() >= contract["qt"]
     except AssertionError:
         slp.LOG.error("invalid contract: %s", traceback.format_exc())
         return dbapi.set_legit(contract, False)
     else:
-        return dbapi.set_legit(
-            contract, dbapi.upsert_wallet(
+        _decimal128 = slp.DECIMAL128[tokenId]
+        check = [
+            # remove quantity from owner wallet
+            dbapi.upsert_wallet(
                 contract["emitter"], tokenId, dict(
                     blockStamp=f"{contract['height']}#{contract['index']}",
-                    balance=slp.DECIMAL128[tokenId](
+                    balance=_decimal128(
                         wallet["balance"].to_decimal() - contract["qt"]
                     )
                 )
+            ),
+            dbapi.upsert_contract(
+                tokenId, dict(
+                    burned=_decimal128(
+                        token["burned"].to_decimal() + contract["qt"]
+                    )
+                )
             )
-        )
+        ]
+        return dbapi.set_legit(contract, check.count(False) == 0)
 
 
 def apply_mint(contract):
-    return False
-    # tokenId = contract["id"]
-
-    # try:
-    #     assert contract["qt"] % 1 == 0
-    #     assert contract["receiver"] == slp.JSON["master address"]
-    #     token = dbapi.find_contract(**{"tokenId": tokenId})
-    #     owner = dbapi.find_wallet(
-    #         **dict(address=contract["emitter"], tokenId=tokenId)
-    #     )
-    #     # token and owner exists
-    #     assert token and owner
-    #     # owner is realy the owner
-    #     assert owner.get("owner", False) is True
-    #     # token not paused by owner
-    #     assert token.get("paused", False) is False
-    #     # owner may mint accourding to global supply limit
-    #     current_supply = (
-    #         token["burned"].to_decimal() + token["minted"].to_decimal() +
-    #         token["exited"].to_decimal()
-    #     )
-    #     allowed_supply = token["globalSupply"].to_decimal()
-    #     assert current_supply + qt < allowed_supply
-    # except AssertionError:
-    #     line = traceback.format_exc().split("\n")[-3].strip()
-    #     slp.LOG.error("invalid contract: %s\n%s", line, contract)
-    #     return dbapi.set_legit(contract, False)
-    # else:
-    #     new_balance = Decimal128(
-    #         "%s" % (owner["balance"].to_decimal() + qt)
-    #         )
-    #     )
-    #     return dbapi.set_legit(
-    #         contract, dbapi.upsert_wallet(
-    #             contract["emitter"], tokenId, dict(
-    #                 blockStamp=f"{contract['height']}#{contract['index']}",
-    #                 balance=new_balance
-    #             )
-    #         )
-    #     )
+    tokenId = contract["id"]
+    try:
+        # minted quantity should avoid decimal part
+        assert contract["qt"].to_decimal() % 1 == 0
+        # BURN contract have to be sent to master address
+        assert contract["receiver"] == slp.JSON["master address"]
+        token = dbapi.find_contract(tokenId=tokenId)
+        # token and owner exists
+        assert token is not None
+        # token not paused by owner
+        assert token.get("paused", False) is False
+        wallet = dbapi.find_wallet(
+            address=contract["emitter"], tokenId=tokenId
+        )
+        assert wallet is not None
+        # wallet is realy the owner
+        assert wallet.get("owner", False) is True
+        # owner may mint accourding to global supply limit
+        current_supply = (
+            token["burned"].to_decimal() + token["minted"].to_decimal() +
+            token["exited"].to_decimal()
+        )
+        allowed_supply = token["globalSupply"].to_decimal()
+        assert current_supply + contract["qt"] <= allowed_supply
+    except AssertionError:
+        slp.LOG.error("invalid contract: %s", traceback.format_exc())
+        return dbapi.set_legit(contract, False)
+    else:
+        _decimal128 = slp.DECIMAL128[tokenId]
+        check = [
+            dbapi.upsert_wallet(
+                contract["emitter"], tokenId, dict(
+                    blockStamp=f"{contract['height']}#{contract['index']}",
+                    balance=slp.DECIMAL128[tokenId](
+                        wallet["balance"].to_decimal() + contract["qt"]
+                    )
+                )
+            ),
+            dbapi.upsert_contract(
+                tokenId, dict(
+                    burned=_decimal128(
+                        token["minted"].to_decimal() + contract["qt"]
+                    )
+                )
+            )
+        ]
+        return dbapi.set_legit(contract, check.count(False) == 0)
 
 
 def apply_send(contract):
     tokenId = contract["id"]
     try:
         token = dbapi.find_contract(tokenId=tokenId)
+        # token and emitter exists
+        assert token is not None
+        # token not paused by owner
+        assert token.get("paused", False) is False
         emitter = dbapi.find_wallet(
             address=contract["emitter"], tokenId=tokenId
         )
-        # token and emitter exists
-        assert token is not None
         assert emitter is not None
-        # token not paused by owner
-        assert token.get("paused", False) is False
         # emitter not frozen by owner
         assert emitter.get("frozen", False) is False
         # emitter balance is okay

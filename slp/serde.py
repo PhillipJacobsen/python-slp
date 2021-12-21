@@ -11,6 +11,9 @@ import re
 import struct
 import binascii
 
+
+SLP1, SLP2 = slp.JSON["slp types"]
+
 # REGEXP for validation, can be used for webhook subscription
 SLP = re.compile(slp.JSON["serialized regex"])
 INPUT_TYPES = slp.JSON.get("input types", {})
@@ -63,48 +66,48 @@ def _match_smartbridge(smartbridge):
 
 
 # -- SLP1 SERIALIZATION --
-def pack_aslp1_genesis(de, qt, sy, na, du="", no="", pa=False, mi=False):
+def pack_slp1_genesis(de, qt, sy, na, du="", no="", pa=False, mi=False):
     fixed = struct.pack(
         "<BBQ??", INPUT_TYPES["GENESIS"],
         int(de), int(qt), bool(pa), bool(mi)
     )
     varia = _pack_varia(sy, na, du, no)
-    return "aslp1://" + binascii.hexlify(fixed).decode() + varia.decode()
+    return SLP1 + "://" + binascii.hexlify(fixed).decode() + varia.decode()
 
 
-def pack_aslp1_fungible(tb, id, qt, no=""):
+def pack_slp1_fungible(tb, id, qt, no=""):
     fixed = struct.pack("<B16sQ", INPUT_TYPES[tb], binascii.unhexlify(id), qt)
     varia = _pack_varia(no)
-    return "aslp1://" + binascii.hexlify(fixed).decode() + varia.decode()
+    return SLP1 + "://" + binascii.hexlify(fixed).decode() + varia.decode()
 
 
-def pack_aslp1_non_fungible(tb, id, no=""):
+def pack_slp1_non_fungible(tb, id, no=""):
     fixed = struct.pack("<B16sQ", INPUT_TYPES[tb], binascii.unhexlify(id))
     varia = _pack_varia(no)
-    return "aslp1://" + binascii.hexlify(fixed).decode() + varia.decode()
+    return SLP1 + "://" + binascii.hexlify(fixed).decode() + varia.decode()
 
 
 # -- SLP2 SERIALIZATION --
-def pack_aslp2_genesis(sy, na, du="", no="", pa=False):
+def pack_slp2_genesis(sy, na, du="", no="", pa=False):
     fixed = struct.pack("<B?", INPUT_TYPES["GENESIS"], pa)
     varia = _pack_varia(sy, na, du, no)
-    return "aslp2://" + binascii.hexlify(fixed).decode() + varia.decode()
+    return SLP2 + "://" + binascii.hexlify(fixed).decode() + varia.decode()
 
 
-def pack_aslp2_non_fungible(tb, id, no=""):
+def pack_slp2_non_fungible(tb, id, no=""):
     fixed = struct.pack("<B16sQ", INPUT_TYPES[tb], binascii.unhexlify(id))
     varia = _pack_varia(no)
-    return "aslp2://" + binascii.hexlify(fixed).decode() + varia.decode()
+    return SLP2 + "://" + binascii.hexlify(fixed).decode() + varia.decode()
 
 
-def pack_aslp2_addmeta(id, **data):
+def pack_slp2_addmeta(id, **data):
     metadata = sorted(data.items(), key=lambda i: len("%s%s" % i))
     # pack fixed size data
     fixed = struct.pack(
         "<B16s", INPUT_TYPES["ADDMETA"], binascii.unhexlify(id)
     )
     # smartbridge size - header size - 2*(fixed size + chunk size)
-    spaceleft = 256 - len("slp2://") - 2*(len(fixed) + 1)
+    spaceleft = 256 - len("_slp2://") - 2*(len(fixed) + 1)
     # compute the metadata and return a list of smartbridges to contain
     # all the asked metadata
     result = []
@@ -122,7 +125,7 @@ def pack_aslp2_addmeta(id, **data):
     result.append(serial)
     # build all smartbridges adding chunk number between fixed and serial
     return [
-        "aslp2://" + (
+        SLP2 + "://" + (
             binascii.hexlify(
                 fixed + struct.pack("<B", result.index(serial) + 1)
             ).decode() + serial.decode()
@@ -130,16 +133,16 @@ def pack_aslp2_addmeta(id, **data):
     ]
 
 
-def pack_aslp2_voidmeta(id, tx):
+def pack_slp2_voidmeta(id, tx):
     fixed = struct.pack(
         "<B16s128s", INPUT_TYPES["VOIDMETA"],
         binascii.unhexlify(id), binascii.unhexlify(tx)
     )
-    return "aslp2://" + binascii.hexlify(fixed).decode()
+    return SLP2 + "://" + binascii.hexlify(fixed).decode()
 
 
 # -- SLP1 DESERIALIZATION --
-def unpack_aslp1_genesis(data):
+def unpack_slp1_genesis(data):
     n = int(struct.calcsize("<BBQ??") * 2)
     fixed = binascii.unhexlify(data[:n])
     varia = data[n:].encode()
@@ -148,10 +151,10 @@ def unpack_aslp1_genesis(data):
         **_unpack_varia(varia, "sy", "na", "du", "no")
     )
     result["tp"] = TYPES_INPUT[result["tp"]]
-    return {"aslp1": result}
+    return {SLP1: result}
 
 
-def unpack_aslp1_fungible(data):
+def unpack_slp1_fungible(data):
     n = int(struct.calcsize("<B16sQ") * 2)
     fixed = binascii.unhexlify(data[:n])
     varia = data[n:].encode()
@@ -161,10 +164,10 @@ def unpack_aslp1_fungible(data):
     )
     result["id"] = binascii.hexlify(result["id"]).decode()
     result["tp"] = TYPES_INPUT[result["tp"]]
-    return {"aslp1": result}
+    return {SLP1: result}
 
 
-def unpack_aslp1_non_fungible(data):
+def unpack_slp1_non_fungible(data):
     n = int(struct.calcsize("<B16s") * 2)
     fixed = binascii.unhexlify(data[:n])
     varia = data[n:].encode()
@@ -174,11 +177,11 @@ def unpack_aslp1_non_fungible(data):
     )
     result["id"] = binascii.hexlify(result["id"]).decode()
     result["tp"] = TYPES_INPUT[result["tp"]]
-    return {"aslp1": result}
+    return {SLP1: result}
 
 
 # -- SLP2 DESERIALIZATION --
-def unpack_aslp2_genesis(data):
+def unpack_slp2_genesis(data):
     n = int(struct.calcsize("<B?") * 2)
     fixed = binascii.unhexlify(data[:n])
     varia = data[n:].encode()
@@ -187,10 +190,10 @@ def unpack_aslp2_genesis(data):
         **_unpack_varia(varia, "sy", "na", "du", "no")
     )
     result["tp"] = TYPES_INPUT[result["tp"]]
-    return {"aslp2": result}
+    return {SLP2: result}
 
 
-def unpack_aslp2_non_fungible(data):
+def unpack_slp2_non_fungible(data):
     n = int(struct.calcsize("<B16s") * 2)
     fixed = binascii.unhexlify(data[:n])
     varia = data[n:].encode()
@@ -200,10 +203,10 @@ def unpack_aslp2_non_fungible(data):
     )
     result["id"] = binascii.hexlify(result["id"]).decode()
     result["tp"] = TYPES_INPUT[result["tp"]]
-    return {"aslp2": result}
+    return {SLP2: result}
 
 
-def unpack_aslp2_addmeta(data):
+def unpack_slp2_addmeta(data):
     n = int(struct.calcsize("<B16sB") * 2)
     fixed = binascii.unhexlify(data[:n])
     varia = data[n:].encode()
@@ -213,10 +216,10 @@ def unpack_aslp2_addmeta(data):
     )
     result["id"] = binascii.hexlify(result["id"]).decode()
     result["tp"] = TYPES_INPUT[result["tp"]]
-    return {"aslp2": result}
+    return {SLP2: result}
 
 
-def unpack_aslp2_voidmeta(data):
+def unpack_slp2_voidmeta(data):
     # n = int(struct.calcsize("<B16s128s") * 2)
     fixed = binascii.unhexlify(data)
     # varia = data[n:].encode()
@@ -226,42 +229,42 @@ def unpack_aslp2_voidmeta(data):
     )
     result["id"] = binascii.hexlify(result["id"]).decode()
     result["tx"] = binascii.hexlify(result["tx"]).decode()
-    return {"aslp2": result}
+    return {SLP2: result}
 
 
 MAP = {
-    'aslp1': {
-        "00": unpack_aslp1_genesis,
-        "01": unpack_aslp1_fungible,
-        "02": unpack_aslp1_fungible,
-        "03": unpack_aslp1_fungible,
-        "04": unpack_aslp1_non_fungible,
-        "05": unpack_aslp1_non_fungible,
-        "06": unpack_aslp1_non_fungible,
-        "07": unpack_aslp1_non_fungible,
-        "08": unpack_aslp1_non_fungible
+    SLP1: {
+        "00": unpack_slp1_genesis,
+        "01": unpack_slp1_fungible,
+        "02": unpack_slp1_fungible,
+        "03": unpack_slp1_fungible,
+        "04": unpack_slp1_non_fungible,
+        "05": unpack_slp1_non_fungible,
+        "06": unpack_slp1_non_fungible,
+        "07": unpack_slp1_non_fungible,
+        "08": unpack_slp1_non_fungible
     },
-    'aslp2': {
-        "00": unpack_aslp2_genesis,
-        "04": unpack_aslp2_non_fungible,
-        "05": unpack_aslp2_non_fungible,
-        "06": unpack_aslp2_non_fungible,
-        "09": unpack_aslp2_non_fungible,
-        "10": unpack_aslp2_addmeta,
-        "11": unpack_aslp2_non_fungible,
-        "12": unpack_aslp2_voidmeta,
-        "13": unpack_aslp2_non_fungible
+    SLP2: {
+        "00": unpack_slp2_genesis,
+        "04": unpack_slp2_non_fungible,
+        "05": unpack_slp2_non_fungible,
+        "06": unpack_slp2_non_fungible,
+        "09": unpack_slp2_non_fungible,
+        "10": unpack_slp2_addmeta,
+        "11": unpack_slp2_non_fungible,
+        "12": unpack_slp2_voidmeta,
+        "13": unpack_slp2_non_fungible
     }
 }
 
 
-def pack_aslp1(*args, **kwargs):
+def pack_slp1(*args, **kwargs):
     if args[0] in "BURN,SEND,MINT":
-        smartbridge = pack_aslp1_fungible(*args, **kwargs)
+        smartbridge = pack_slp1_fungible(*args, **kwargs)
     elif args[0] in "PAUSE,RESUME,NEWOWNER,FREEZE,UNFREEZE":
-        smartbridge = pack_aslp1_non_fungible(*args, **kwargs)
+        smartbridge = pack_slp1_non_fungible(*args, **kwargs)
     elif args[0] == "GENESIS":
-        smartbridge = pack_aslp1_genesis(*args[1:], **kwargs)
+        smartbridge = pack_slp1_genesis(*args[1:], **kwargs)
     else:
         raise Exception("Unknown contract !")
     if len(smartbridge) <= 256:
@@ -270,15 +273,15 @@ def pack_aslp1(*args, **kwargs):
         raise Exception("Bad smartbridge size (>256)")
 
 
-def pack_aslp2(*args, **kwargs):
+def pack_slp2(*args, **kwargs):
     if args[0] in "PAUSE,RESUME,NEWOWNER,AUTHMETA,REVOKEMETA,CLONE":
-        smartbridge = pack_aslp2_non_fungible(*args, **kwargs)
+        smartbridge = pack_slp2_non_fungible(*args, **kwargs)
     elif args[0] == "ADDMETA":
-        smartbridge = pack_aslp2_addmeta(*args[1:], **kwargs)
+        smartbridge = pack_slp2_addmeta(*args[1:], **kwargs)
     elif args[0] == "VOIDMETA":
-        smartbridge = pack_aslp2_voidmeta(*args[1:], **kwargs)
+        smartbridge = pack_slp2_voidmeta(*args[1:], **kwargs)
     elif args[0] == "GENESIS":
-        smartbridge = pack_aslp2_genesis(*args[1:], **kwargs)
+        smartbridge = pack_slp2_genesis(*args[1:], **kwargs)
     else:
         raise Exception("Unknown contract !")
     if len(smartbridge) <= 256:
