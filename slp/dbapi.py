@@ -40,10 +40,12 @@ def blockstamp_cmp(a, b):
     """
     height_a, index_a = [int(e) for e in a.split("#")]
     height_b, index_b = [int(e) for e in b.split("#")]
-    return \
-        False if height_a < height_b else \
-        False if index_a <= index_b else \
-        True
+    if height_a > height_b:
+        return True
+    elif height_a == height_b:
+        return index_a > index_b
+    else:
+        return False
 
 
 def add_reccord(height, index, txid, slp_type, emitter, receiver, cost, **kw):
