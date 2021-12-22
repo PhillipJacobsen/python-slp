@@ -2,7 +2,7 @@
 
   > This is a reflexion about network concensus around Side Ledger Protocol developped on Qredit blockchain. Purpose here is to evaluate the actions that have to be done so SLP networt could act as a side-blockchain. The porpose of this documentation is to maximize abstraction level of SLP so it can run with any blockchain where smartbridge or equivalent can be embeded in a transaction.
 
-# Definitions and rationales
+<!-- # Definitions and rationales
 
 ## Smartbridge
 
@@ -202,4 +202,4 @@ on concensus request:
 on receiving `transaction.applied` webhook data :
   1. deserialize smartbridge and check if it matches locally
   2. add deserialized smartbridge into record database with `nok=True` if error 
-  3. apply the contract if `nok==False`
+  3. apply the contract if `nok==False` -->
