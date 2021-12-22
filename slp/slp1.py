@@ -146,13 +146,14 @@ def apply_mint(contract, **options):
         # BURN contract have to be sent to master address
         assert contract["receiver"] == slp.JSON["master address"]
         token = dbapi.find_contract(tokenId=tokenId)
-        # token and owner exists
+        # token exists
         assert token is not None
         # token not paused by owner
         assert token.get("paused", False) is False
         wallet = dbapi.find_wallet(
             address=contract["emitter"], tokenId=tokenId
         )
+        # wallet exists
         assert wallet is not None
         # wallet is realy the owner
         assert wallet.get("owner", False) is True
@@ -202,13 +203,14 @@ def apply_send(contract, **options):
     blockstamp = f"{contract['height']}#{contract['index']}"
     try:
         token = dbapi.find_contract(tokenId=tokenId)
-        # token and emitter exists
+        # token exists
         assert token is not None
         # token not paused by owner
         assert token.get("paused", False) is False
         emitter = dbapi.find_wallet(
             address=contract["emitter"], tokenId=tokenId
         )
+        # emitter exists
         assert emitter is not None
         # emitter not frozen by owner
         assert emitter.get("frozen", False) is False
