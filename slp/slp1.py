@@ -139,7 +139,7 @@ def apply_mint(contract, **options):
     blockstamp = f"{contract['height']}#{contract['index']}"
     try:
         # GENESIS check ---
-        reccord = dbapi.db.journal.find_one({"id": tokenId, "tp": "GENESIS"})
+        reccord = dbapi.find_reccord(id=tokenId, tp="GENESIS")
         assert reccord is not None and reccord["mintable"] is True
         # minted quantity should avoid decimal part
         assert contract["qt"].to_decimal() % 1 == 0
@@ -304,16 +304,18 @@ def apply_freeze(contract, **options):
         token = dbapi.find_contract(tokenId=tokenId)
         # token exists
         assert token is not None
+        # token not paused by owner
+        assert token.get("paused", False) is False
         # EMITTER check ---
         emitter = dbapi.find_wallet(
             address=contract["emitter"], tokenId=tokenId
         )
         # emitter exists
         assert emitter is not None
-        # check if contract blockstamp higher than emitter one
-        assert dbapi.blockstamp_cmp(blockstamp, emitter["blockStamp"])
         # emitter is realy the owner
         assert emitter.get("owner", False) is True
+        # check if contract blockstamp higher than emitter one
+        assert dbapi.blockstamp_cmp(blockstamp, emitter["blockStamp"])
         # RECEIVER check ---
         receiver = dbapi.find_wallet(
             address=contract["receiver"], tokenId=tokenId
@@ -337,12 +339,112 @@ def apply_freeze(contract, **options):
 
 
 def apply_unfreeze(contract, **options):
-    return False
+    tokenId = contract["id"]
+    blockstamp = f"{contract['height']}#{contract['index']}"
+    try:
+        # TOKEN check ---
+        token = dbapi.find_contract(tokenId=tokenId)
+        # token exists
+        assert token is not None
+        # token not paused by owner
+        assert token.get("paused", False) is False
+        # EMITTER check ---
+        emitter = dbapi.find_wallet(
+            address=contract["emitter"], tokenId=tokenId
+        )
+        # emitter exists
+        assert emitter is not None
+        # emitter is realy the owner
+        assert emitter.get("owner", False) is True
+        # check if contract blockstamp higher than emitter one
+        assert dbapi.blockstamp_cmp(blockstamp, emitter["blockStamp"])
+        # RECEIVER check ---
+        receiver = dbapi.find_wallet(
+            address=contract["receiver"], tokenId=tokenId
+        )
+        # receiver exists
+        assert receiver is not None
+        # receiver is not already frozen
+        assert receiver.get("frozen", False) is True
+        # return True if assertion only asked (test if contract is valid)
+        if options.get("assert_only", False):
+            return True
+    except Exception:
+        slp.LOG.error("invalid contract: %s", traceback.format_exc())
+        return dbapi.set_legit(contract, False)
+    else:
+        return dbapi.set_legit(
+            contract, dbapi.upsert_wallet(
+                receiver["address"], tokenId, {"frozen": False}
+            )
+        )
 
 
 def apply_pause(contract, **options):
-    return False
+    tokenId = contract["id"]
+    blockstamp = f"{contract['height']}#{contract['index']}"
+    try:
+        # GENESIS check ---
+        reccord = dbapi.find_reccord(id=tokenId, tp="GENESIS")
+        assert reccord is not None and reccord["pausable"] is True
+        # TOKEN check ---
+        token = dbapi.find_contract(tokenId=tokenId)
+        # token exists
+        assert token is not None
+        # token not paused by owner
+        assert token.get("paused", False) is False
+        # EMITTER check ---
+        emitter = dbapi.find_wallet(
+            address=contract["emitter"], tokenId=tokenId
+        )
+        # emitter exists
+        assert emitter is not None
+        # emitter is realy the owner
+        assert emitter.get("owner", False) is True
+        # check if contract blockstamp higher than emitter one
+        assert dbapi.blockstamp_cmp(blockstamp, emitter["blockStamp"])
+        # return True if assertion only asked (test if contract is valid)
+        if options.get("assert_only", False):
+            return True
+    except Exception:
+        slp.LOG.error("invalid contract: %s", traceback.format_exc())
+        return dbapi.set_legit(contract, False)
+    else:
+        return dbapi.set_legit(
+            contract, dbapi.upsert_contract(tokenId, {"paused": True})
+        )
 
 
 def apply_resume(contract, **options):
-    return False
+    tokenId = contract["id"]
+    blockstamp = f"{contract['height']}#{contract['index']}"
+    try:
+        # GENESIS check ---
+        reccord = dbapi.find_reccord(id=tokenId, tp="GENESIS")
+        assert reccord is not None and reccord["pausable"] is True
+        # TOKEN check ---
+        token = dbapi.find_contract(tokenId=tokenId)
+        # token exists
+        assert token is not None
+        # token not paused by owner
+        assert token.get("paused", False) is True
+        # EMITTER check ---
+        emitter = dbapi.find_wallet(
+            address=contract["emitter"], tokenId=tokenId
+        )
+        # emitter exists
+        assert emitter is not None
+        # emitter is realy the owner
+        assert emitter.get("owner", False) is True
+        # check if contract blockstamp higher than emitter one
+        assert dbapi.blockstamp_cmp(blockstamp, emitter["blockStamp"])
+        # return True if assertion only asked (test if contract is valid)
+        if options.get("assert_only", False):
+            return True
+    except Exception:
+        slp.LOG.error("invalid contract: %s", traceback.format_exc())
+        return dbapi.set_legit(contract, False)
+    else:
+        return dbapi.set_legit(
+            contract, dbapi.upsert_contract(tokenId, {"paused": False})
+        )
