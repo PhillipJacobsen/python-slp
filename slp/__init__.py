@@ -6,6 +6,7 @@ import re
 import json
 import socket
 import logging
+import logging.handlers
 
 with io.open(os.path.join(os.path.dirname(__file__), "slp.json")) as f:
     JSON = json.load(f)
@@ -43,6 +44,12 @@ HEADERS = {
 
 LOG = logging.getLogger("slp")
 LOG.setLevel(JSON.get("log level", "DEBUG"))
+# TODO: add parameters to slp.json
+LOG.addHandler(
+    logging.handlers.TimedRotatingFileHandler(
+        os.path.join(ROOT, "slp.log"), when="H", interval=1
+    )
+)
 
 
 def validate(**fields):
