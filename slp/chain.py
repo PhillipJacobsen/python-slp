@@ -55,6 +55,10 @@ def get_token_id(slp_type, symbol, blockheight, txid):
 
 
 def subscribe():
+    """
+    Webhook subscription management.
+    """
+
     webhook = os.path.join(os.path.dirname(__file__), "webhook.json")
     if os.path.exists(webhook):
         return False
@@ -76,6 +80,10 @@ def subscribe():
 
 
 def unsubscribe():
+    """
+    Webhook subscription management.
+    """
+
     webhook = os.path.join(os.path.dirname(__file__), "webhook.json")
     if not os.path.exists(webhook):
         return False
@@ -94,6 +102,9 @@ def unsubscribe():
 
 
 def dump_webhook_token(token):
+    """
+    Secure webhook token management.
+    """
     authorization = token[:32]
     verification = token[32:]
     filename = os.path.join(
@@ -111,6 +122,9 @@ def dump_webhook_token(token):
 
 
 def check_webhook_token(authorization):
+    """
+    Secure webhook token check.
+    """
     filename = os.path.join(
         os.path.dirname(__file__),
         hashlib.md5(authorization.encode("utf-8")).hexdigest() + ".key"
@@ -127,6 +141,7 @@ def check_webhook_token(authorization):
         ).hexdigest() == data["hash"]
 
 
+# TODO: make it robust if any timeout occur ?
 def get_block_transactions(blockId):
     data, page, result = [None], 1, []
     peer = slp.JSON["api peer"]
