@@ -43,7 +43,7 @@ def blockstamp_cmp(a, b):
     if height_a > height_b:
         return True
     elif height_a == height_b:
-        return index_a > index_b
+        return index_a >= index_b
     else:
         return False
 
@@ -123,38 +123,30 @@ def upsert_contract(tokenId, values):
 
 
 def upsert_wallet(address, tokenId, values):
-    wallet = find_wallet(**{"tokenId": tokenId, "address": address})
     try:
-        # wallet exists
-        assert wallet is not None
-        # blockstamp higher than last upsertion
-        assert blockstamp_cmp(
-            values.get("blockStamp", "0#0"), wallet["blockStamp"]
-        )
+        query = {"tokenId": tokenId, "address": address}
         update = {"$set": dict(
             [k, v] for k, v in values.items()
             if k in "address,tokenId,blockStamp,balance,owner,frozen"
         )}
-        db.wallets.update_one(wallet, update)
-    except AssertionError:
-        slp.LOG.error(
-            "%s does not exist or blockstamp %s lower than %s",
-            wallet, values.get("blockStamp", "0#0"), wallet["blockStamp"]
-        )
-        return False
+        db.wallets.update_one(query, update)
     except Exception as error:
         slp.LOG.error("%r\n%s", error, traceback.format_exc())
         return False
     return True
 
 
-def exchange_token(tokenId, blockstamp, sender, receiver, qt):
+def exchange_token(tokenId, sender, receiver, qt):
+    # find sender wallet from database
     _sender = find_wallet(address=sender, tokenId=tokenId)
+    # get Decimal128 builder according to token id and convert qt to Decimal
     _decimal128 = slp.DECIMAL128[tokenId]
     qt = decimal.Decimal(qt)
 
     if _sender:
+        # find receiver wallet from database
         _receiver = find_wallet(address=receiver, tokenId=tokenId)
+        # create it with needed
         if _receiver is None:
             db.wallets.insert_one(
                 dict(
@@ -165,22 +157,26 @@ def exchange_token(tokenId, blockstamp, sender, receiver, qt):
             new_balance = qt
         else:
             new_balance = _receiver["balance"].to_decimal() + qt
-
+        # first update receiver
         if upsert_wallet(
-            receiver, tokenId, {
-                "blockStamp": blockstamp,
-                "balance": _decimal128(new_balance)
-            }
+            receiver, tokenId, {"balance": _decimal128(new_balance)}
         ):
-            return upsert_wallet(
+            slp.LOG.debug("    < %s received %s", receiver, qt)
+            # if reception is a success, update emitter
+            if upsert_wallet(
                 sender, tokenId, {
-                    "blockStamp": blockstamp,
                     "balance":
                         _decimal128(_sender["balance"].to_decimal() - qt)
                 }
-            )
-
-    return False
+            ):
+                # and return True if success
+                slp.LOG.debug("    > %s sent %s", sender, qt)
+                return True
+    else:
+        slp.LOG.error(
+            "%s wallet does not exists with contract %s", sender, tokenId
+        )
+        return False
 
 
 def select_peers():
@@ -238,7 +234,7 @@ class Processor(threading.Thread):
             start_height = max(last_reccord[0]["height"], start_height)
 
         block_per_page = 100
-        page = start_height // block_per_page - 1
+        page = start_height // block_per_page
 
         slp.LOG.info("Start downloading blocks from height %s", start_height)
 

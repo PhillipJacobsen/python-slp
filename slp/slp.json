@@ -26,7 +26,7 @@
         "aslp2": 17891337
     },
 
-    "database name": "slp_node",
+    "database name": "slp_node_3",
     "webhook peer": "http://127.0.0.1:4004",
     "api peer": "https://api.ark.io"
 }

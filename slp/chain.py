@@ -229,6 +229,7 @@ class Chainer(threading.Thread):
     STOP = threading.Event()
 
     def __init__(self, *args, **kwargs):
+        self.__kw = kwargs
         threading.Thread.__init__(self)
         self.daemon = True
         self.start()
@@ -243,7 +244,9 @@ class Chainer(threading.Thread):
         finally:
             Chainer.STOP.set()
 
-    def run(self, debug=False):
+    def run(self):
+        DEBUG = self.__kw.get("debug", False)
+        slp.LOG.debug("Chainer launch with debug set to %s", DEBUG)
         # controled infinite loop
         while not Chainer.STOP.is_set():
             try:
@@ -255,7 +258,7 @@ class Chainer(threading.Thread):
                 slp.LOG.info("Contract execution: -> %s", execution)
                 if not execution:
                     dbapi.db.rejected.insert_one(reccord)
-                    if debug:
+                    if DEBUG:
                         raise Exception("Debug stop !")
                 else:
                     # broadcast to peers ?
