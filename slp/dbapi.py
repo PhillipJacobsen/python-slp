@@ -99,6 +99,10 @@ def add_reccord(height, index, txid, slp_type, emitter, receiver, cost, **kw):
         return contract
 
 
+def find_reccord(**filter):
+    return db.journal.find_one(filter)
+
+
 def find_contract(**filter):
     return db.contracts.find_one(filter)
 
@@ -176,7 +180,7 @@ def exchange_token(tokenId, sender, receiver, qt):
         slp.LOG.error(
             "%s wallet does not exists with contract %s", sender, tokenId
         )
-        return False
+    return False
 
 
 def select_peers():
@@ -234,7 +238,7 @@ class Processor(threading.Thread):
             start_height = max(last_reccord[0]["height"], start_height)
 
         block_per_page = 100
-        page = start_height // block_per_page
+        page = start_height // block_per_page - 1
 
         slp.LOG.info("Start downloading blocks from height %s", start_height)
 
@@ -258,7 +262,8 @@ class Processor(threading.Thread):
 
                     blocks = [
                         b for b in blocks.get("data", [])
-                        if b["transactions"] > 0 and b["height"] > start_height
+                        if b["transactions"] > 0 and
+                           b["height"] >= start_height
                     ]
 
                     slp.LOG.info(
