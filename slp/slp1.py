@@ -18,9 +18,12 @@ def manage(contract, **options):
     """
     try:
         assert contract.get("legit", False) is None
-        return getattr(
+        result = getattr(
             sys.modules[__name__], "apply_%s" % contract["tp"].lower()
         )(contract, **options)
+        if result is False:
+            dbapi.db.rejected.insert_one(contract)
+        return result
     except AssertionError:
         slp.LOG.error("Contract %s already applied", contract)
     except AttributeError:
