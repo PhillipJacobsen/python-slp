@@ -93,7 +93,8 @@ def add_reccord(height, index, txid, slp_type, emitter, receiver, cost, **kw):
         )
         db.journal.insert_one(contract)
     except Exception as error:
-        slp.LOG.error("%r\n%s", error, traceback.format_exc())
+        slp.LOG.error("%r", error)
+        slp.LOG.debug("traceback data:\n%s", traceback.format_exc())
         return False
     else:
         return contract
@@ -121,7 +122,8 @@ def upsert_contract(tokenId, values):
         )}
         db.contracts.update_one(query, update)
     except Exception as error:
-        slp.LOG.error("%r\n%s", error, traceback.format_exc())
+        slp.LOG.error("%r", error)
+        slp.LOG.debug("traceback data:\n%s", traceback.format_exc())
         return False
     return True
 
@@ -135,7 +137,8 @@ def upsert_wallet(address, tokenId, values):
         )}
         db.wallets.update_one(query, update)
     except Exception as error:
-        slp.LOG.error("%r\n%s", error, traceback.format_exc())
+        slp.LOG.error("%r", error)
+        slp.LOG.debug("traceback data:\n%s", traceback.format_exc())
         return False
     return True
 
@@ -241,6 +244,7 @@ class Processor(threading.Thread):
         page = start_height // block_per_page - 1
 
         slp.LOG.info("Start downloading blocks from height %s", start_height)
+        last_parsed = start_height
 
         # controled infinite loop
         Processor.STOP.clear()
@@ -263,7 +267,7 @@ class Processor(threading.Thread):
                     blocks = [
                         b for b in blocks.get("data", [])
                         if b["transactions"] > 0 and
-                           b["height"] >= start_height
+                           b["height"] > last_parsed
                     ]
 
                     slp.LOG.info(
@@ -272,9 +276,10 @@ class Processor(threading.Thread):
 
                     if len(blocks):
                         for block in blocks:
-                            chain.parse_block(block)
+                            chain.parse_block(block, peer)
                             mark["last parsed block"] = block["height"]
                             slp.dumpJson(mark, "processor.mark", ".json")
+                            last_parsed = block["height"]
 
                     page += 1
 
@@ -287,7 +292,8 @@ class Processor(threading.Thread):
                     peer = random.choice(peers)
 
             except Exception as error:
-                slp.LOG.error("%r\n%s", error, traceback.format_exc())
+                slp.LOG.error("%r", error)
+                slp.LOG.debug("traceback data:\n%s", traceback.format_exc())
 
         req.EndPoint.timeout = timeout
         slp.LOG.info("Processor %d task exited", id(self))

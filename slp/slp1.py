@@ -40,6 +40,7 @@ def apply_genesis(contract, **options):
         if options.get("assert_only", False):
             return True
     except AssertionError:
+        slp.LOG.debug("!%s", contract)
         slp.LOG.error("invalid contract: %s", traceback.format_exc())
         return dbapi.set_legit(contract, False)
     else:
@@ -106,6 +107,7 @@ def apply_burn(contract, **options):
         if options.get("assert_only", False):
             return True
     except AssertionError:
+        slp.LOG.debug("!%s", contract)
         slp.LOG.error("invalid contract: %s", traceback.format_exc())
         return dbapi.set_legit(contract, False)
     else:
@@ -170,6 +172,7 @@ def apply_mint(contract, **options):
         if options.get("assert_only", False):
             return True
     except AssertionError:
+        slp.LOG.debug("!%s", contract)
         slp.LOG.error("invalid contract: %s", traceback.format_exc())
         return dbapi.set_legit(contract, False)
     else:
@@ -224,6 +227,7 @@ def apply_send(contract, **options):
         if options.get("assert_only", False):
             return True
     except AssertionError:
+        slp.LOG.debug("!%s", contract)
         slp.LOG.error("invalid contract: %s", traceback.format_exc())
         return dbapi.set_legit(contract, False)
     else:
@@ -276,6 +280,7 @@ def apply_newowner(contract, **options):
         if options.get("assert_only", False):
             return True
     except AssertionError:
+        slp.LOG.debug("!%s", contract)
         slp.LOG.error("invalid contract: %s", traceback.format_exc())
         return dbapi.set_legit(contract, False)
     else:
@@ -330,6 +335,7 @@ def apply_freeze(contract, **options):
         if options.get("assert_only", False):
             return True
     except Exception:
+        slp.LOG.debug("!%s", contract)
         slp.LOG.error("invalid contract: %s", traceback.format_exc())
         return dbapi.set_legit(contract, False)
     else:
@@ -372,6 +378,7 @@ def apply_unfreeze(contract, **options):
         if options.get("assert_only", False):
             return True
     except Exception:
+        slp.LOG.debug("!%s", contract)
         slp.LOG.error("invalid contract: %s", traceback.format_exc())
         return dbapi.set_legit(contract, False)
     else:
@@ -409,6 +416,7 @@ def apply_pause(contract, **options):
         if options.get("assert_only", False):
             return True
     except Exception:
+        slp.LOG.debug("!%s", contract)
         slp.LOG.error("invalid contract: %s", traceback.format_exc())
         return dbapi.set_legit(contract, False)
     else:
@@ -444,6 +452,7 @@ def apply_resume(contract, **options):
         if options.get("assert_only", False):
             return True
     except Exception:
+        slp.LOG.debug("!%s", contract)
         slp.LOG.error("invalid contract: %s", traceback.format_exc())
         return dbapi.set_legit(contract, False)
     else:
