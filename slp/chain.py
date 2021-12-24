@@ -32,15 +32,11 @@ dt|data|string
 """
 
 import os
-import sys
 import slp
 import json
-import queue
 import pickle
 import hashlib
 import traceback
-import threading
-import importlib
 
 from slp import serde, dbapi
 from usrv import req
@@ -227,14 +223,9 @@ def parse_block(block, peer=None):
                 if "qt" in fields:
                     fields["qt"] = float(fields["qt"])
                 # add a new reccord in journal
-                reccord = dbapi.add_reccord(
+                dbapi.add_reccord(
                     block["height"], index, tx["id"], slp_type, **fields
                 )
-                # -
-                # if reccord is not False:
-                #     slp.LOG.info("Document %s added to journal", reccord)
-                    # send contract application as job
-                    # Chainer.JOB.put(reccord)
             except Exception as error:
                 slp.LOG.info(
                     "Error occured with tx %s in block %d",
@@ -242,59 +233,3 @@ def parse_block(block, peer=None):
                 )
                 slp.LOG.error("%r\n%s", error, traceback.format_exc())
     return True
-
-
-class Chainer(threading.Thread):
-
-    JOB = queue.Queue()
-    LOCK = threading.Lock()
-    STOP = threading.Event()
-
-    def __init__(self, *args, **kwargs):
-        self.__kw = kwargs
-        threading.Thread.__init__(self)
-        self.daemon = True
-        self.start()
-        slp.LOG.info("Chainer %s set", id(self))
-
-    @staticmethod
-    def stop():
-        try:
-            Chainer.LOCK.release()
-        except Exception:
-            pass
-        finally:
-            Chainer.STOP.set()
-
-    def run(self):
-        DEBUG = self.__kw.get("debug", False)
-        slp.LOG.debug("Chainer launch with debug set to %s", DEBUG)
-        # controled infinite loop
-        while not Chainer.STOP.is_set():
-            try:
-                reccord = Chainer.JOB.get()
-                module = f"slp.{reccord['slp_type'][1:]}"
-                if module not in sys.modules:
-                    importlib.__import__(module)
-
-                Chainer.LOCK.acquire()
-                execution = sys.modules[module].manage(reccord)
-                slp.LOG.info("Contract execution: -> %s", execution)
-                if not execution:
-                    dbapi.db.rejected.insert_one(reccord)
-                    if DEBUG:
-                        raise Exception("Debug stop !")
-                else:
-                    # broadcast to peers ?
-                    pass
-                Chainer.LOCK.release()
-            except ImportError:
-                slp.LOG.info(
-                    "No modules found to handle '%s' contracts",
-                    reccord['slp_type']
-                )
-            except Exception as error:
-                Chainer.LOCK.release()
-                Chainer.stop()
-                dbapi.Processor.stop()
-                slp.LOG.error("%r\n%s", error, traceback.format_exc())
