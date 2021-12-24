@@ -142,9 +142,9 @@ def check_webhook_token(authorization):
 
 
 # TODO: make it robust if any timeout occur ?
-def get_block_transactions(blockId):
+def get_block_transactions(blockId, peer=None):
     data, page, result = [None], 1, []
-    peer = slp.JSON["api peer"]
+    peer = peer or slp.JSON["api peer"]
     while len(data) > 0:
         data = req.GET.api.blocks(
             blockId, "transactions", page=page, peer=peer, headers=slp.HEADERS
@@ -182,19 +182,26 @@ def manage_block(**request):
     return parse_block(block)
 
 
-def parse_block(block):
+def parse_block(block, peer=None):
     """
     Search valid SLP vendor fields in all transactions from specified block.
     If any, it is normalized and registered as a rreccord in journal.
     """
     # get transactions from block
-    tx_list = get_block_transactions(block["id"])
+    tx_list = get_block_transactions(block["id"], peer)
+    # because at some point, peer could return nothing good, check the
+    # transaction count
+    try:
+        assert len(tx_list) == int(block["transactions"])
+    except AssertionError:
+        slp.LOG.error("Can't retrieve all transactions from block %s", block)
+        raise Exception("Block integrity breach")
     loop = zip(list(range(len(tx_list))), tx_list)
     # search for SLP vendor fields in transfer type transactions
     for index, tx in [
         (i+1, t) for i, t in loop
         if t["type"] == 0 and
-        t.get("vendorField", False)
+        t.get("vendorField", "") != ""
     ]:
         # try to read contract from vendor field
         contract = read_vendorField(tx["vendorField"])
@@ -224,10 +231,10 @@ def parse_block(block):
                     block["height"], index, tx["id"], slp_type, **fields
                 )
                 # -
-                if reccord is not False:
-                    slp.LOG.info("Document %s added to journal", reccord)
+                # if reccord is not False:
+                #     slp.LOG.info("Document %s added to journal", reccord)
                     # send contract application as job
-                    Chainer.JOB.put(reccord)
+                    # Chainer.JOB.put(reccord)
             except Exception as error:
                 slp.LOG.info(
                     "Error occured with tx %s in block %d",
@@ -269,6 +276,8 @@ class Chainer(threading.Thread):
                 module = f"slp.{reccord['slp_type'][1:]}"
                 if module not in sys.modules:
                     importlib.__import__(module)
+
+                Chainer.LOCK.acquire()
                 execution = sys.modules[module].manage(reccord)
                 slp.LOG.info("Contract execution: -> %s", execution)
                 if not execution:
@@ -278,12 +287,14 @@ class Chainer(threading.Thread):
                 else:
                     # broadcast to peers ?
                     pass
+                Chainer.LOCK.release()
             except ImportError:
                 slp.LOG.info(
                     "No modules found to handle '%s' contracts",
                     reccord['slp_type']
                 )
             except Exception as error:
+                Chainer.LOCK.release()
                 Chainer.stop()
                 dbapi.Processor.stop()
                 slp.LOG.error("%r\n%s", error, traceback.format_exc())
