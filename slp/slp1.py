@@ -129,6 +129,7 @@ def apply_burn(contract, **options):
             # update burned quantity on token contract
             dbapi.update_contract(
                 tokenId, dict(
+                    height=contract["height"], index=contract["index"],
                     burned=_decimal128(
                         token["burned"].to_decimal() + contract["qt"]
                     )
@@ -194,7 +195,8 @@ def apply_mint(contract, **options):
             # update minted quantity on token contract
             dbapi.update_contract(
                 tokenId, dict(
-                    burned=_decimal128(
+                    height=contract["height"], index=contract["index"],
+                    minted=_decimal128(
                         token["minted"].to_decimal() + contract["qt"]
                     )
                 )
@@ -426,7 +428,12 @@ def apply_pause(contract, **options):
         return dbapi.set_legit(contract, False)
     else:
         return dbapi.set_legit(
-            contract, dbapi.update_contract(tokenId, {"paused": True})
+            contract, dbapi.update_contract(
+                tokenId, {
+                    "height": contract["height"], "index": contract["index"],
+                    "paused": True
+                }
+            )
         )
 
 
@@ -464,5 +471,10 @@ def apply_resume(contract, **options):
         return dbapi.set_legit(contract, False)
     else:
         return dbapi.set_legit(
-            contract, dbapi.update_contract(tokenId, {"paused": False})
+            contract, dbapi.update_contract(
+                tokenId, {
+                    "height": contract["height"], "index": contract["index"],
+                    "paused": False
+                }
+            )
         )
