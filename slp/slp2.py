@@ -2,6 +2,10 @@
 
 """
 SLP2 contract execution module.
+
+A wallet is stored into slp2 database if it owns the SLP2 contract or if it is
+allowed to edit SLP2 metadata. If no one of the two condition are valid, wallet
+is removed from slp2 database.
 """
 
 import slp
@@ -18,6 +22,47 @@ def _pack_meta(**data):
     for key, value in metadata:
         serial += _pack_varia(key, value)
     return serial
+
+
+def _token_check(tokenId, paused=False):
+    # get token from contracts database
+    token = dbapi.find_contract(tokenId=tokenId)
+    # token exists
+    assert token is not None
+    # token not paused|resumed by owner
+    assert token.get("paused", False) is paused
+    return token
+
+
+def _emitter_ownership_check(address, tokenId, blockstamp):
+    # get wallet from slp2 database
+    emitter = dbapi.find_slp2_wallet(address=address, tokenId=tokenId)
+    # emitter exists
+    assert emitter is not None
+    # emitter is realy the owner
+    assert emitter.get("owner", False) is True
+    # check if contract blockstamp higher than emitter one
+    assert dbapi.blockstamp_cmp(blockstamp, emitter["blockStamp"])
+    return emitter
+
+
+def _emitter_check(address, tokenId, blockstamp):
+    # get wallet from slp2 database
+    emitter = dbapi.find_slp2_wallet(address=address, tokenId=tokenId)
+    # emitter exists
+    assert emitter is not None
+    # check if contract blockstamp higher than emitter one
+    assert dbapi.blockstamp_cmp(blockstamp, emitter["blockStamp"])
+    return emitter
+
+
+def _receiver_check(address, tokenId, frozen=False):
+    # get wallet from slp2 database
+    receiver = dbapi.find_slp2_wallet(address=address, tokenId=tokenId)
+    # receiver if exists is not already un|frozen
+    if receiver is not None:
+        assert receiver.get("frozen", False) is frozen
+    return receiver
 
 
 def manage(contract, **options):
@@ -53,8 +98,8 @@ def apply_genesis(contract, **options):
         slp.LOG.error("invalid contract: %s", traceback.format_exc())
         return dbapi.set_legit(contract, False)
     else:
-        # add new contract and new owner wallet into database
         check = [
+            # add new contract
             dbapi.db.contracts.insert_one(
                 dict(
                     tokenId=tokenId, height=contract["height"],
@@ -63,6 +108,7 @@ def apply_genesis(contract, **options):
                     notes=contract.get("no", None), paused=False
                 )
             ),
+            # add new owner wallet
             dbapi.db.slp2.insert_one(
                 dict(
                     address=contract["emitter"], tokenId=tokenId,
@@ -81,26 +127,13 @@ def apply_newowner(contract, **options):
     blockstamp = f"{contract['height']}#{contract['index']}"
     try:
         # TOKEN check ---
-        token = dbapi.find_contract(tokenId=tokenId)
-        # token exists
-        assert token is not None
+        _token_check(tokenId)
         # EMITTER check ---
-        emitter = dbapi.find_slp2_wallet(
-            address=contract["emitter"], tokenId=tokenId
+        emitter = _emitter_ownership_check(
+            contract["emitter"], tokenId, blockstamp
         )
-        # emitter exists
-        assert emitter is not None
-        # emitter is realy the owner
-        assert emitter.get("owner", False) is True
-        # check if contract blockstamp higher than emitter one
-        assert dbapi.blockstamp_cmp(blockstamp, emitter["blockStamp"])
         # RECEIVER check ---
-        receiver = dbapi.find_slp2_wallet(
-            address=contract["receiver"], tokenId=tokenId
-        )
-        # receiver if exists is not already frozen
-        if receiver is not None:
-            assert receiver.get("frozen", False) is False
+        receiver = _receiver_check(contract["receiver"], tokenId)
         # return True if assertion only asked (test if contract is valid)
         if options.get("assert_only", False):
             return True
@@ -109,7 +142,6 @@ def apply_newowner(contract, **options):
         slp.LOG.error("invalid contract: %s", traceback.format_exc())
         return dbapi.set_legit(contract, False)
     else:
-        blockstamp = f"{contract['height']}#{contract['index']}"
         check = []
         if receiver is None:
             check.append(
@@ -125,14 +157,12 @@ def apply_newowner(contract, **options):
             )
         check += [
             dbapi.update_slp2_wallet(
-                receiver["address"], tokenId, {
-                    "owner": True, "blockStamp": blockstamp,
-                    "metadata": receiver["metadata"] + emitter["metadata"]
-                }
+                receiver["address"], tokenId,
+                {"owner": True, "blockStamp": blockstamp}
             ),
             dbapi.update_slp2_wallet(
                 emitter["address"], tokenId,
-                {"owner": False, "blockStamp": blockstamp, "metadata": b""}
+                {"owner": False, "blockStamp": blockstamp}
             )
         ]
         return dbapi.set_legit(contract, check.count(False) == 0)
@@ -144,25 +174,14 @@ def apply_pause(contract, **options):
     try:
         # GENESIS check ---
         reccord = dbapi.find_reccord(id=tokenId, tp="GENESIS")
+        # token must be pausable
         assert reccord is not None and reccord["pa"] is True
         # PAUSE contract have to be sent to master address
         assert contract["receiver"] == slp.JSON["master address"]
         # TOKEN check ---
-        token = dbapi.find_contract(tokenId=tokenId)
-        # token exists
-        assert token is not None
-        # token not paused by owner
-        assert token.get("paused", False) is False
+        _token_check(tokenId)
         # EMITTER check ---
-        emitter = dbapi.find_slp2_wallet(
-            address=contract["emitter"], tokenId=tokenId
-        )
-        # emitter exists
-        assert emitter is not None
-        # emitter is realy the owner
-        assert emitter.get("owner", False) is True
-        # check if contract blockstamp higher than emitter one
-        assert dbapi.blockstamp_cmp(blockstamp, emitter["blockStamp"])
+        _emitter_ownership_check(contract["emitter"], tokenId, blockstamp)
         # return True if assertion only asked (test if contract is valid)
         if options.get("assert_only", False):
             return True
@@ -172,7 +191,12 @@ def apply_pause(contract, **options):
         return dbapi.set_legit(contract, False)
     else:
         return dbapi.set_legit(
-            contract, dbapi.update_contract(tokenId, {"paused": True})
+            contract, dbapi.update_contract(
+                tokenId, {
+                    "height": contract["height"], "index": contract["index"],
+                    "paused": True
+                }
+            )
         )
 
 
@@ -180,27 +204,12 @@ def apply_resume(contract, **options):
     tokenId = contract["id"]
     blockstamp = f"{contract['height']}#{contract['index']}"
     try:
-        # GENESIS check ---
-        reccord = dbapi.find_reccord(id=tokenId, tp="GENESIS")
-        assert reccord is not None and reccord["pa"] is True
         # RESUME contract have to be sent to master address
         assert contract["receiver"] == slp.JSON["master address"]
         # TOKEN check ---
-        token = dbapi.find_contract(tokenId=tokenId)
-        # token exists
-        assert token is not None
-        # token not paused by owner
-        assert token.get("paused", False) is True
+        _token_check(tokenId, paused=True)
         # EMITTER check ---
-        emitter = dbapi.find_slp2_wallet(
-            address=contract["emitter"], tokenId=tokenId
-        )
-        # emitter exists
-        assert emitter is not None
-        # emitter is realy the owner
-        assert emitter.get("owner", False) is True
-        # check if contract blockstamp higher than emitter one
-        assert dbapi.blockstamp_cmp(blockstamp, emitter["blockStamp"])
+        _emitter_ownership_check(contract["emitter"], tokenId, blockstamp)
         # return True if assertion only asked (test if contract is valid)
         if options.get("assert_only", False):
             return True
@@ -210,7 +219,12 @@ def apply_resume(contract, **options):
         return dbapi.set_legit(contract, False)
     else:
         return dbapi.set_legit(
-            contract, dbapi.update_contract(tokenId, {"paused": False})
+            contract, dbapi.update_contract(
+                tokenId, {
+                    "height": contract["height"], "index": contract["index"],
+                    "paused": False
+                }
+            )
         )
 
 
@@ -218,29 +232,15 @@ def apply_authmeta(contract, **options):
     tokenId = contract["id"]
     blockstamp = f"{contract['height']}#{contract['index']}"
     try:
-        # GENESIS check ---
-        reccord = dbapi.find_reccord(id=tokenId, tp="GENESIS")
-        assert reccord is not None
         # TOKEN check ---
-        token = dbapi.find_contract(tokenId=tokenId)
-        # token exists
-        assert token is not None
-        # token not paused by owner
-        assert token.get("paused", False) is False
+        _token_check(tokenId)
         # EMITTER check ---
-        emitter = dbapi.find_slp2_wallet(
-            address=contract["emitter"], tokenId=tokenId
-        )
-        # emitter exists
-        assert emitter is not None
-        # emitter is realy the owner
-        assert emitter.get("owner", False) is True
+        _emitter_ownership_check(contract["emitter"], tokenId, blockstamp)
         # RECEIVER check ---
-        receiver = dbapi.find_slp2_wallet(
+        # receiver should not exist in slp2 database
+        assert dbapi.find_slp2_wallet(
             address=contract["receiver"], tokenId=tokenId
-        )
-        # receiver should not exists
-        assert receiver is None
+        ) is None
         # return True if assertion only asked (test if contract is valid)
         if options.get("assert_only", False):
             return True
@@ -249,7 +249,6 @@ def apply_authmeta(contract, **options):
         slp.LOG.error("invalid contract: %s", traceback.format_exc())
         return dbapi.set_legit(contract, False)
     else:
-        blockstamp = f"{contract['height']}#{contract['index']}"
         return dbapi.set_legit(
             contract, dbapi.db.slp2.insert_one(
                 dict(
@@ -264,25 +263,12 @@ def apply_addmeta(contract, **options):
     tokenId = contract["id"]
     blockstamp = f"{contract['height']}#{contract['index']}"
     try:
-        # GENESIS check ---
-        reccord = dbapi.find_reccord(id=tokenId, tp="GENESIS")
-        assert reccord is not None
         # ADDMETA contract have to be sent to master address
         assert contract["receiver"] == slp.JSON["master address"]
         # TOKEN check ---
-        token = dbapi.find_contract(tokenId=tokenId)
-        # token exists
-        assert token is not None
-        # token not paused by owner
-        assert token.get("paused", False) is False
+        _token_check(tokenId)
         # EMITTER check ---
-        emitter = dbapi.find_slp2_wallet(
-            address=contract["emitter"], tokenId=tokenId
-        )
-        # emitter exists
-        assert emitter is not None
-        # check if contract blockstamp higher than emitter one
-        assert dbapi.blockstamp_cmp(blockstamp, emitter["blockStamp"])
+        emitter = _emitter_check(contract["emitter"], tokenId, blockstamp)
         # return True if assertion only asked (test if contract is valid)
         if options.get("assert_only", False):
             return True
@@ -291,24 +277,24 @@ def apply_addmeta(contract, **options):
         slp.LOG.error("invalid contract: %s", traceback.format_exc())
         return dbapi.set_legit(contract, False)
     else:
-        data = (
-            emitter["metadata"] +
-            _pack_meta(**{contract["na"]: contract["dt"]})
-        )
-        print(data)
         return dbapi.set_legit(
             contract, dbapi.update_slp2_wallet(
-                emitter["address"], tokenId,
-                {"blockStamp": blockstamp, "metadata": data}
+                emitter["address"], tokenId, dict(
+                    blockStamp=blockstamp,
+                    metadata=(
+                        emitter["metadata"] +
+                        _pack_meta(**{contract["na"]: contract["dt"]})
+                    )
+                )
             )
         )
 
 
-def apply_revokemeta(contract, **options):
+def apply_voidmeta(contract, **options):
     return False
 
 
-def apply_voidmeta(contract, **options):
+def apply_revokemeta(contract, **options):
     return False
 
 
