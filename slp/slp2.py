@@ -6,6 +6,8 @@ SLP2 contract execution module.
 A wallet is stored into slp2 database if it owns the SLP2 contract or if it is
 allowed to edit SLP2 metadata. If no one of the two condition are valid, wallet
 is removed from slp2 database.
+
+A record in slp2 database is indexed by the wallet address and the token id.
 """
 
 import slp
@@ -56,12 +58,11 @@ def _emitter_check(address, tokenId, blockstamp):
     return emitter
 
 
-def _receiver_check(address, tokenId, frozen=False):
+def _receiver_check(address, tokenId, must_exist=True):
     # get wallet from slp2 database
     receiver = dbapi.find_slp2_wallet(address=address, tokenId=tokenId)
-    # receiver if exists is not already un|frozen
-    if receiver is not None:
-        assert receiver.get("frozen", False) is frozen
+    if must_exist:
+        assert receiver is not None
     return receiver
 
 
@@ -133,7 +134,9 @@ def apply_newowner(contract, **options):
             contract["emitter"], tokenId, blockstamp
         )
         # RECEIVER check ---
-        receiver = _receiver_check(contract["receiver"], tokenId)
+        receiver = _receiver_check(
+            contract["receiver"], tokenId, must_exist=False
+        )
         # return True if assertion only asked (test if contract is valid)
         if options.get("assert_only", False):
             return True
@@ -291,11 +294,53 @@ def apply_addmeta(contract, **options):
 
 
 def apply_voidmeta(contract, **options):
-    return False
+    tokenId = contract["id"]
+    blockstamp = f"{contract['height']}#{contract['index']}"
+    try:
+        # VOIDMETA contract have to be sent to master address
+        assert contract["receiver"] == slp.JSON["master address"]
+        # TOKEN check ---
+        _token_check(tokenId)
+        # EMITTER check ---
+        emitter = _emitter_check(contract["emitter"], tokenId, blockstamp)
+        # return True if assertion only asked (test if contract is valid)
+        if options.get("assert_only", False):
+            return True
+    except Exception:
+        slp.LOG.debug("!%s", contract)
+        slp.LOG.error("invalid contract: %s", traceback.format_exc())
+        return dbapi.set_legit(contract, False)
+    else:
+        return dbapi.set_legit(
+            contract, dbapi.update_slp2_wallet(
+                emitter["address"], tokenId, dict(
+                    blockStamp=blockstamp, metadata=b""
+                )
+            )
+        )
 
 
 def apply_revokemeta(contract, **options):
-    return False
+    tokenId = contract["id"]
+    blockstamp = f"{contract['height']}#{contract['index']}"
+    try:
+        # TOKEN check ---
+        _token_check(tokenId)
+        # EMITTER check ---
+        _emitter_ownership_check(contract["emitter"], tokenId, blockstamp)
+        # RECEIVER check ---
+        receiver = _receiver_check(contract["receiver"], tokenId)
+        # return True if assertion only asked (test if contract is valid)
+        if options.get("assert_only", False):
+            return True
+    except Exception:
+        slp.LOG.debug("!%s", contract)
+        slp.LOG.error("invalid contract: %s", traceback.format_exc())
+        return dbapi.set_legit(contract, False)
+    else:
+        return dbapi.set_legit(
+            contract, dbapi.db.slp2.delete_one(receiver)
+        )
 
 
 def apply_clone(contract, **options):
