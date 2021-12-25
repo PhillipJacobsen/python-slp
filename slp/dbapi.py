@@ -12,9 +12,11 @@ from bson.decimal128 import Decimal128
 # MONGO DB DEFINITION ---
 db = MongoClient(slp.JSON.get("mongo url", None))[slp.JSON["database name"]]
 # --- databases ---
+db.contracts.create_index("tokenId", unique=True)
 db.journal.create_index([("height", 1), ("index", 1)], unique=True)
 db.rejected.create_index([("height", 1), ("index", 1)], unique=True)
-db.contracts.create_index("tokenId", unique=True)
+db.slp1.create_index([("address", 1), ("tokenId", 1)], unique=True)
+db.slp2.create_index([("address", 1), ("tokenId", 1)], unique=True)
 # ---
 
 # Build Decimal128 builders for all aslp1 token
@@ -103,11 +105,15 @@ def find_contract(**filter):
     return db.contracts.find_one(filter)
 
 
-def find_wallet(**filter):
-    return db.wallets.find_one(filter)
+def find_slp1_wallet(**filter):
+    return db.slp1.find_one(filter)
 
 
-def upsert_contract(tokenId, values):
+def find_slp2_wallet(**filter):
+    return db.slp2.find_one(filter)
+
+
+def update_contract(tokenId, values):
     try:
         query = {"tokenId": tokenId}
         update = {"$set": dict(
@@ -123,14 +129,14 @@ def upsert_contract(tokenId, values):
     return True
 
 
-def upsert_wallet(address, tokenId, values):
+def update_slp_wallet(collection, address, tokenId, values):
     try:
         query = {"tokenId": tokenId, "address": address}
         update = {"$set": dict(
             [k, v] for k, v in values.items()
-            if k in "address,tokenId,blockStamp,balance,owner,frozen"
+            if k in "address,tokenId,blockStamp,balance,owner,frozen,metadata"
         )}
-        db.wallets.update_one(query, update)
+        getattr(db, collection).update_one(query, update)
     except Exception as error:
         slp.LOG.error("%r", error)
         slp.LOG.debug("traceback data:\n%s", traceback.format_exc())
@@ -138,19 +144,27 @@ def upsert_wallet(address, tokenId, values):
     return True
 
 
-def exchange_token(tokenId, sender, receiver, qt):
+def update_slp1_wallet(address, tokenId, values):
+    return update_slp_wallet("slp1", address, tokenId, values)
+
+
+def update_slp2_wallet(address, tokenId, values):
+    return update_slp_wallet("slp2", address, tokenId, values)
+
+
+def exchange_slp1_token(tokenId, sender, receiver, qt):
     # find sender wallet from database
-    _sender = find_wallet(address=sender, tokenId=tokenId)
+    _sender = find_slp1_wallet(address=sender, tokenId=tokenId)
     # get Decimal128 builder according to token id and convert qt to Decimal
     _decimal128 = slp.DECIMAL128[tokenId]
     qt = decimal.Decimal(qt)
 
     if _sender:
         # find receiver wallet from database
-        _receiver = find_wallet(address=receiver, tokenId=tokenId)
+        _receiver = find_slp1_wallet(address=receiver, tokenId=tokenId)
         # create it with needed
         if _receiver is None:
-            db.wallets.insert_one(
+            db.slp1.insert_one(
                 dict(
                     address=receiver, tokenId=tokenId, blockStamp="0#0",
                     balance=_decimal128(0.), owner=False, frozen=False
@@ -160,11 +174,11 @@ def exchange_token(tokenId, sender, receiver, qt):
         else:
             new_balance = _receiver["balance"].to_decimal() + qt
         # first update receiver
-        if upsert_wallet(
+        if update_slp1_wallet(
             receiver, tokenId, {"balance": _decimal128(new_balance)}
         ):
             # if reception is a success, update emitter
-            if upsert_wallet(
+            if update_slp1_wallet(
                 sender, tokenId, {
                     "balance":
                         _decimal128(_sender["balance"].to_decimal() - qt)
@@ -173,7 +187,8 @@ def exchange_token(tokenId, sender, receiver, qt):
                 # and return True if success
                 return True
             else:
-                upsert_wallet(
+                # if error with sender update get back received token
+                update_slp1_wallet(
                     receiver, tokenId, {
                         "balance":
                             _decimal128(_receiver["balance"].to_decimal() - qt)
