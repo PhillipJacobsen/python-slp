@@ -10,26 +10,8 @@ from usrv import req
 from slp import dbapi, chain
 
 
-def select_peers():
-    peers = []
-    candidates = req.GET.api.peers(
-        peer=slp.JSON["api peer"],
-        orderBy="height:desc",
-        headers=slp.HEADERS
-    ).get("data", [])
-    for candidate in candidates[:20]:
-        api_port = candidate.get("ports", {}).get(
-            "@arkecosystem/core-api", -1
-        )
-        if api_port > 0:
-            peers.append("http://%s:%s" % (candidate["ip"], api_port))
-    return peers
-
-
 class Processor(threading.Thread):
 
-    JOB = queue.Queue()
-    LOCK = threading.Lock()
     STOP = threading.Event()
 
     def __init__(self, *args, **kwargs):
@@ -40,19 +22,14 @@ class Processor(threading.Thread):
 
     @staticmethod
     def stop():
-        try:
-            Processor.LOCK.release()
-        except Exception:
-            pass
-        finally:
-            Processor.STOP.set()
+        Processor.STOP.set()
 
     def run(self):
         timeout = req.EndPoint.timeout
         req.EndPoint.timeout = 30
         # load last processing mark if any
         mark = slp.loadJson("processor.mark", ".json")
-        peers = select_peers()
+        peers = chain.select_peers()
         # get last good peer if any else choose a random one
         peer = mark.get("peer", random.choice(peers))
         # determine where to start
@@ -73,6 +50,7 @@ class Processor(threading.Thread):
         last_parsed = start_height
 
         # controled infinite loop
+        chain.BlockParser()
         Processor.STOP.clear()
         while not Processor.STOP.is_set():
             try:
@@ -87,7 +65,7 @@ class Processor(threading.Thread):
                     mark = {"peer": peer}
 
                     if blocks.get("meta", {}).get("next", False) is None:
-                        slp.LOG.info("End of blocks reached")
+                        slp.LOG.info("End of block pages reached")
                         Processor.stop()
 
                     blocks = [
@@ -97,12 +75,12 @@ class Processor(threading.Thread):
                     ]
 
                     slp.LOG.info(
-                        "Parsing %d blocks (page %d)", len(blocks), page
+                        "Parsing %d blocks from page %d", len(blocks), page
                     )
 
                     if len(blocks):
                         for block in blocks:
-                            chain.parse_block(block, peer)
+                            chain.BlockParser.JOB.put(block)
                             mark["last parsed block"] = block["height"]
                             slp.dumpJson(mark, "processor.mark", ".json")
                             last_parsed = block["height"]
@@ -112,7 +90,7 @@ class Processor(threading.Thread):
                 else:
                     slp.LOG.info("No block from %s", peer)
                     if len(peers) == 1:
-                        peers = select_peers()
+                        peers = chain.select_peers()
                     if peer in peers:
                         peers.remove(peer)
                     peer = random.choice(peers)
@@ -123,59 +101,3 @@ class Processor(threading.Thread):
 
         req.EndPoint.timeout = timeout
         slp.LOG.info("Processor %d task exited", id(self))
-
-
-# class Chainer(threading.Thread):
-
-#     JOB = queue.Queue()
-#     LOCK = threading.Lock()
-#     STOP = threading.Event()
-
-#     def __init__(self, *args, **kwargs):
-#         self.__kw = kwargs
-#         threading.Thread.__init__(self)
-#         self.daemon = True
-#         self.start()
-#         slp.LOG.info("Chainer %s set", id(self))
-
-#     @staticmethod
-#     def stop():
-#         try:
-#             Chainer.LOCK.release()
-#         except Exception:
-#             pass
-#         finally:
-#             Chainer.STOP.set()
-
-#     def run(self):
-#         DEBUG = self.__kw.get("debug", False)
-#         slp.LOG.debug("Chainer launch with debug set to %s", DEBUG)
-#         # controled infinite loop
-#         while not Chainer.STOP.is_set():
-#             try:
-#                 reccord = Chainer.JOB.get()
-#                 module = f"slp.{reccord['slp_type'][1:]}"
-#                 if module not in sys.modules:
-#                     importlib.__import__(module)
-
-#                 Chainer.LOCK.acquire()
-#                 execution = sys.modules[module].manage(reccord)
-#                 slp.LOG.info("Contract execution: -> %s", execution)
-#                 if not execution:
-#                     dbapi.db.rejected.insert_one(reccord)
-#                     if DEBUG:
-#                         raise Exception("Debug stop !")
-#                 else:
-#                     # broadcast to peers ?
-#                     pass
-#                 Chainer.LOCK.release()
-#             except ImportError:
-#                 slp.LOG.info(
-#                     "No modules found to handle '%s' contracts",
-#                     reccord['slp_type']
-#                 )
-#             except Exception as error:
-#                 Chainer.LOCK.release()
-#                 Chainer.stop()
-#                 dbapi.Processor.stop()
-#                 slp.LOG.error("%r\n%s", error, traceback.format_exc())
