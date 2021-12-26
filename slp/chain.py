@@ -309,10 +309,6 @@ class BlockParser(threading.Thread):
                 BlockParser.LOCK.release()
             else:
                 # atomic action is stopped for sure ---
-                if len(contracts):
-                    slp.LOG.info(
-                        "--> %s contracts from smartbridges", len(contracts)
-                    )
                 for contract in contracts:
                     module = f"slp.{contract['slp_type'][1:]}"
                     try:
@@ -328,8 +324,3 @@ class BlockParser(threading.Thread):
                         )
                     except Exception as error:
                         slp.LOG.error("%r\n%s", error, traceback.format_exc())
-
-    def get_lowest_block_height(self):
-        with BlockParser.JOB.mutex:
-            if len(self.JOB.queue) > 0:
-                return min([block["height"] for block in self.JOB.queue])
