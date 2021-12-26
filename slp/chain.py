@@ -32,14 +32,35 @@ dt|data|string
 """
 
 import os
+import sys
 import slp
 import json
+import queue
+import random
 import pickle
 import hashlib
+import importlib
 import traceback
+import threading
 
 from slp import serde, dbapi
 from usrv import req
+
+
+def select_peers():
+    peers = []
+    candidates = req.GET.api.peers(
+        peer=slp.JSON["api peer"],
+        orderBy="height:desc",
+        headers=slp.HEADERS
+    ).get("data", [])
+    for candidate in candidates[:20]:
+        api_port = candidate.get("ports", {}).get(
+            "@arkecosystem/core-api", -1
+        )
+        if api_port > 0:
+            peers.append("http://%s:%s" % (candidate["ip"], api_port))
+    return peers
 
 
 def get_token_id(slp_type, symbol, blockheight, txid):
@@ -174,8 +195,8 @@ def manage_block(**request):
     body = request.get("data", {})
     block = body.get("data", {})
     slp.LOG.info("Genuine block header received:\n%s", block)
-    # parse block
-    return parse_block(block)
+    # push block into queue to be parsed
+    BlockParser.JOB.put(block)
 
 
 def parse_block(block, peer=None):
@@ -183,6 +204,7 @@ def parse_block(block, peer=None):
     Search valid SLP vendor fields in all transactions from specified block.
     If any, it is normalized and registered as a rreccord in journal.
     """
+    contracts = []
     # get transactions from block
     tx_list = get_block_transactions(block["id"], peer)
     # because at some point, peer could return nothing good, check the
@@ -212,7 +234,7 @@ def parse_block(block, peer=None):
                     fields.update(id=get_token_id(
                         slp_type, fields["sy"], block["height"], tx["id"]
                     ))
-                # add wallets information and cost
+                # add wallet informations and cost
                 fields.update(
                     emitter=tx["sender"], receiver=tx["recipient"],
                     cost=int(tx["amount"])
@@ -223,7 +245,7 @@ def parse_block(block, peer=None):
                 if "qt" in fields:
                     fields["qt"] = float(fields["qt"])
                 # add a new reccord in journal
-                dbapi.add_reccord(
+                contract = dbapi.add_reccord(
                     block["height"], index, tx["id"], slp_type, **fields
                 )
             except Exception as error:
@@ -232,4 +254,82 @@ def parse_block(block, peer=None):
                     tx["id"], block["height"]
                 )
                 slp.LOG.error("%r\n%s", error, traceback.format_exc())
-    return True
+            else:
+                contracts.append(contract)
+    return contracts
+
+
+class BlockParser(threading.Thread):
+
+    JOB = queue.Queue()
+    LOCK = threading.Lock()
+    STOP = threading.Event()
+
+    def __init__(self, *args, **kwargs):
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self.start()
+        slp.LOG.info("BlockParser %s set", id(self))
+
+    @staticmethod
+    def stop():
+        if BlockParser.LOCK.locked():
+            BlockParser.LOCK.release()
+        BlockParser.STOP.set()
+
+    def run(self):
+        peers = select_peers()
+        peer = random.choice(peers)
+        BlockParser.STOP.clear()
+        while not BlockParser.STOP.is_set():
+            # atomic action starts here ---
+            BlockParser.LOCK.acquire()
+            block = BlockParser.JOB.get()
+            slp.LOG.info(
+                "Parsing %d transaction(s) from block %s",
+                block["transactions"], block["height"]
+            )
+            try:
+                contracts = parse_block(block, peer)
+                BlockParser.LOCK.release()
+            except Exception:
+                slp.LOG.error(
+                    "Pushing back block %d, not enough transaction found",
+                    block["height"]
+                )
+                # put the block to the left of queue to be sure it will be
+                # get first on BlockParser.LOCK release
+                with BlockParser.JOB.mutex:
+                    BlockParser.JOB.queue.appendleft(block)
+                if peer in peers:
+                    peers.remove(peer)
+                if len(peers) == 0:
+                    peers = select_peers()
+                peer = random.choice(peers)
+                BlockParser.LOCK.release()
+            else:
+                # atomic action is stopped for sure ---
+                if len(contracts):
+                    slp.LOG.info(
+                        "--> %s contracts from smartbridges", len(contracts)
+                    )
+                for contract in contracts:
+                    module = f"slp.{contract['slp_type'][1:]}"
+                    try:
+                        if module not in sys.modules:
+                            importlib.__import__(module)
+                        execution = sys.modules[module].manage(contract)
+                        if not execution:
+                            dbapi.db.rejected.insert_one(contract)
+                    except ImportError:
+                        slp.LOG.info(
+                            "No modules found to handle '%s' contracts",
+                            contract['slp_type']
+                        )
+                    except Exception as error:
+                        slp.LOG.error("%r\n%s", error, traceback.format_exc())
+
+    def get_lowest_block_height(self):
+        with BlockParser.JOB.mutex:
+            if len(self.JOB.queue) > 0:
+                return min([block["height"] for block in self.JOB.queue])
