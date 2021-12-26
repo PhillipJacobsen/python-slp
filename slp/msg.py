@@ -91,12 +91,9 @@ class Messenger(threading.Thread):
 
     @staticmethod
     def stop():
-        try:
+        if Messenger.LOCK.locked():
             Messenger.LOCK.release()
-        except Exception:
-            pass
-        finally:
-            Messenger.STOP.set()
+        Messenger.STOP.set()
 
     def run(self):
         # controled infinite loop
