@@ -7,7 +7,11 @@ A wallet is stored into slp2 database if it owns the SLP2 contract or if it is
 allowed to edit SLP2 metadata. If no one of the two condition are valid, wallet
 is removed from slp2 database.
 
-A record in slp2 database is indexed by the wallet address and the token id.
+Each wallet have a metadata field where it stores its metadata. The token id
+metadata is obtained by the aggregation of metadata from all token-associated
+wallets.
+
+A record in slp2 database is indexed by wallet address and token id.
 """
 
 import slp
@@ -95,7 +99,7 @@ def apply_genesis(contract, **options):
         if options.get("assert_only", False):
             return True
     except AssertionError:
-        slp.LOG.debug("!%s", contract)
+        slp.LOG.debug("assertion error with %s", contract)
         slp.LOG.error("invalid contract: %s", traceback.format_exc())
         return dbapi.set_legit(contract, False)
     else:
