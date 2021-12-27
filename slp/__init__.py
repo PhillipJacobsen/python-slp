@@ -44,11 +44,11 @@ HEADERS = {
 
 LOG = logging.getLogger("slp")
 LOG.setLevel(JSON.get("log level", "DEBUG"))
-# TODO: add parameters to slp.json
+# TODO: add log rotation parameters to slp.json
+logpath = os.path.join(ROOT, ".log", f"{JSON['database name']}.log")
+os.makedirs(os.path.dirname(logpath), exist_ok=True)
 LOG.addHandler(
-    logging.handlers.TimedRotatingFileHandler(
-        os.path.join(ROOT, "slp.log"), when="H", interval=1
-    )
+    logging.handlers.TimedRotatingFileHandler(logpath, when="H", interval=1)
 )
 
 
