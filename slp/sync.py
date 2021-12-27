@@ -1,7 +1,6 @@
 # -*- coding:utf-8 -*-
 
 import slp
-import queue
 import random
 import traceback
 import threading
@@ -89,7 +88,7 @@ class Processor(threading.Thread):
 
                 else:
                     slp.LOG.info("No block from %s", peer)
-                    if len(peers) == 1:
+                    if len(peers) <= 1:
                         peers = chain.select_peers()
                     if peer in peers:
                         peers.remove(peer)
