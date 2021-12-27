@@ -7,7 +7,7 @@ import hashlib
 import threading
 import traceback
 
-from slp import node, chain
+from slp import node, chain, sync
 from usrv import srv
 
 
@@ -101,7 +101,8 @@ class Messenger(threading.Thread):
             try:
                 request = Messenger.JOB.get()
                 if "webhook" in request:
-                    chain.manage_block(**request["webhook"])
+                    if not sync.Processor.STOP.is_set():
+                        chain.manage_block(**request["webhook"])
                 else:
                     msg = request.get("data", {})
                     slp.LOG.info("performing message: %r", msg)
