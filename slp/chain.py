@@ -210,6 +210,7 @@ def parse_block(block, peer=None):
     Search valid SLP vendor fields in all transactions from specified block.
     If any, it is normalized and registered as a rreccord in journal.
     """
+    # contracts to be returned
     contracts = []
     # get transactions from block
     tx_list = get_block_transactions(block["id"], peer)
@@ -261,7 +262,8 @@ def parse_block(block, peer=None):
                 )
                 slp.LOG.error("%r\n%s", error, traceback.format_exc())
             else:
-                contracts.append(contract)
+                if contract not in [None, False]:
+                    contracts.append(contract)
     return contracts
 
 
@@ -303,7 +305,7 @@ class BlockParser(threading.Thread):
                     block["height"]
                 )
                 # put the block to the left of queue to be sure it will be
-                # get first on BlockParser.LOCK release
+                # get first on BlockParser LOCK release
                 with BlockParser.JOB.mutex:
                     BlockParser.JOB.queue.appendleft(block)
                 if peer in peers:
