@@ -49,18 +49,24 @@ from usrv import req
 
 def select_peers():
     peers = []
-    candidates = req.GET.api.peers(
-        peer=slp.JSON["api peer"],
-        orderBy="height:desc",
-        headers=slp.HEADERS
-    ).get("data", [])
-    for candidate in candidates[:20]:
-        api_port = candidate.get("ports", {}).get(
-            "@arkecosystem/core-api", -1
-        )
-        if api_port > 0:
-            peers.append("http://%s:%s" % (candidate["ip"], api_port))
-    return peers
+    try:
+        candidates = req.GET.api.peers(
+            peer=slp.JSON["api peer"],
+            orderBy="height:desc",
+            headers=slp.HEADERS
+        ).get("data", [])
+    except Exception:
+        slp.LOG.error("Can not fetch peers from %s", slp.JSON["api peer"])
+        peers = [slp.JSON["api peer"]]
+    else:
+        for candidate in candidates[:20]:
+            api_port = candidate.get("ports", {}).get(
+                "@arkecosystem/core-api", -1
+            )
+            if api_port > 0:
+                peers.append("http://%s:%s" % (candidate["ip"], api_port))
+    finally:
+        return peers
 
 
 def get_token_id(slp_type, symbol, blockheight, txid):
@@ -291,7 +297,6 @@ class BlockParser(threading.Thread):
             )
             try:
                 contracts = parse_block(block, peer)
-                BlockParser.LOCK.release()
             except Exception:
                 slp.LOG.error(
                     "Pushing back block %d, not enough transaction found",
@@ -303,11 +308,12 @@ class BlockParser(threading.Thread):
                     BlockParser.JOB.queue.appendleft(block)
                 if peer in peers:
                     peers.remove(peer)
-                if len(peers) == 0:
+                if len(peers) <= 1:
                     peers = select_peers()
                 peer = random.choice(peers)
                 BlockParser.LOCK.release()
             else:
+                BlockParser.LOCK.release()
                 # atomic action is stopped for sure ---
                 for contract in contracts:
                     module = f"slp.{contract['slp_type'][1:]}"
