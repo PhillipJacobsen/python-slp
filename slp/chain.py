@@ -320,9 +320,7 @@ class BlockParser(threading.Thread):
                     try:
                         if module not in sys.modules:
                             importlib.__import__(module)
-                        execution = sys.modules[module].manage(contract)
-                        if not execution:
-                            dbapi.db.rejected.insert_one(contract)
+                        sys.modules[module].manage(contract)
                     except ImportError:
                         slp.LOG.info(
                             "No modules found to handle '%s' contracts",
