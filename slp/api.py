@@ -4,49 +4,86 @@
 Provide database REST interface.
 """
 
-from slp import dbapi
+import slp
+import traceback
+
 from usrv import srv
+from slp import dbapi, serde
+
+SEARCH_FIELDS = "address,tokenId,blockStamp,owner,frozen,"
+"slp_type,emitter,receiver,legit,tb,sy,id,pa,mi,"
+"height,index,type,paused".split(",")
 
 
-@srv.bind("/<collection:srt>/find")
+@srv.bind("/<str:collection>/find", methods=["GET"])
 def find(collection, **kw):
     try:
-        kw = dict(
-            [k, v] for k, v in kw.items()
-            if k not in "headers,url,data,method"
-        )
-        orderBy = dict(
-            [field, -1 if order in "desc,Desc,DESC" else 1]
-            for field, order in [
-                order_by.split(":") for order_by in
-                kw.pop("orderBy", "").split(",")
-            ]
-        )
-        page = kw.pop("page", 1)
+        # get collection
+        col = getattr(dbapi.db, collection)
+
+        # pop pagination keys
+        orderBy = kw.pop("orderBy", None)
+        page = int(kw.pop("page", 1))
+
+        # filter kw so that only database specified keys can be search on.
+        # it also gets rid of request environ (headers, environ, data...)
+        kw = dict([k, v] for k, v in kw.items() if k in SEARCH_FIELDS)
+
+        # convert bool values
+        for key in [
+            k for k in ["owner", "frozen", "paused", "pa", "mi"] if k in kw
+        ]:
+            kw[key] = True if kw[key].lower() in ['1', 'true'] else False
+
+        # convert integer values
+        for key in [k for k in ["height", "index"] if k in kw]:
+            kw[key] = int(kw[key])
+
+        # computes count and execute first filter
+        total = col.count_documents(kw)
+        cursor = col.find(kw)
+
+        # apply ordering
+        if orderBy is not None:
+            cursor = cursor.sort(
+                tuple(
+                    [field, -1 if order in "desc,Desc,DESC" else 1]
+                    for field, order in [
+                        order_by.split(":") for order_by in orderBy.split(",")
+                    ]
+                )
+            )
+
+        # jump to asked page
+        cursor = cursor.skip((page-1) * 100)
+
+        # build data
+        data = []
+        for reccord in list(cursor.limit(100)):
+            reccord.pop("_id", False)
+            if "metadata" in reccord:
+                reccord["metadata"] = serde._unpack_meta(reccord["metadata"])
+            data.append(reccord)
 
         return {
             "status": 200,
-            "meta": {"page": page, "limit": 100},
-            "data": list(
-                getattr(dbapi.db, collection).find(kw).sort(orderBy)
-                .skip(page-1 * 100).limit(100)
-            )
+            "meta": {"page": page, "limit": 100, "totalCount": total},
+            "data": data
         }
-    except Exception:
-        return {"status": 501, "msg": "Internal Error"}
 
-
-@srv.bind("/<collection:srt>/find_one")
-def find_one(collection, **kw):
-    try:
-        kw = dict(
-            [k, v] for k, v in kw.items()
-            if k not in "headers,url,data,method"
+    except Exception as error:
+        slp.LOG.error(
+            "Error trying to fetch data : %s\n%s", kw, traceback.format_exc()
         )
+        return {"status": 501, "msg": "Internal Error: %r" % error}
 
-        return {
-            "status": 200, "meta": None,
-            "data": getattr(dbapi.db, collection).find(kw)
-        }
-    except Exception:
-        return {"status": 501, "msg": "Internal Error"}
+
+# @srv.bind("/slp2/metadata/<str:tokenId>")
+# def find_metadata(collection, tokenId, address):
+#     metadata = {}
+#     for r in dbapi.slp2.find(tokenId=tokenId):
+#         metadata.update(r.get("metadata", {}))
+#     try:
+#         return {"status": 200, "meta": None, "data": metadata}
+#     except Exception:
+#         return {"status": 501, "msg": "Internal Error"}
