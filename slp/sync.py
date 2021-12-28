@@ -25,17 +25,17 @@ class Processor(threading.Thread):
         Processor.STOP.set()
 
     def run(self):
+        timeout = req.EndPoint.timeout
+        req.EndPoint.timeout = 30
         # subscribe to blockchain webhook if not already done
         if not chain.subscribed():
             chain.subscribe()
-        # 
-        markfolder = os.path.join(slp.ROOT, ".json")
-        timeout = req.EndPoint.timeout
-        req.EndPoint.timeout = 30
         # load last processing mark if any
-        mark = slp.loadJson("processor.mark", markfolder)
-        peers = chain.select_peers()
+        markfolder = os.path.join(slp.ROOT, ".json")
+        markname = f"{slp.JSON['database name']}.mark"
+        mark = slp.loadJson(markname, markfolder)
         # get last good peer if any else choose a random one
+        peers = chain.select_peers()
         peer = mark.get("peer", random.choice(peers))
         # determine where to start
         start_height = max(
@@ -47,7 +47,6 @@ class Processor(threading.Thread):
         )
         if len(last_reccord):
             start_height = max(last_reccord[0]["height"], start_height)
-
         block_per_page = 100
         page = start_height // block_per_page - 1
 
@@ -61,9 +60,8 @@ class Processor(threading.Thread):
             try:
 
                 blocks = req.GET.api.blocks(
-                    peer=peer, page=page,
-                    limit=block_per_page, orderBy="height:asc",
-                    headers=slp.HEADERS
+                    peer=peer, page=page, limit=block_per_page,
+                    orderBy="height:asc", headers=slp.HEADERS
                 )
 
                 if blocks.get("status", False) == 200:
@@ -87,7 +85,7 @@ class Processor(threading.Thread):
                         for block in blocks:
                             chain.BlockParser.JOB.put(block)
                             mark["last parsed block"] = block["height"]
-                            slp.dumpJson(mark, "processor.mark", markfolder)
+                            slp.dumpJson(mark, markname, markfolder)
                             last_parsed = block["height"]
 
                     page += 1
