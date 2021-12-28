@@ -11,7 +11,7 @@ from usrv import srv
 from slp import dbapi, serde
 
 SEARCH_FIELDS = "address,tokenId,blockStamp,owner,frozen,"
-"slp_type,emitter,receiver,legit,tb,sy,id,pa,mi,"
+"slp_type,emitter,receiver,legit,tp,sy,id,pa,mi,"
 "height,index,type,paused".split(",")
 
 
