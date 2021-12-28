@@ -92,7 +92,7 @@ def apply_genesis(contract, **options):
     tokenId = contract["id"]
     try:
         # blockchain transaction amount have to match GENESIS cost
-        assert contract["cost"] >= slp.JSON["GENESIS cost"]["aslp1"]
+        assert contract["cost"] >= slp.JSON["GENESIS cost"][slp.SLP2]
         # GENESIS contract have to be sent to master address
         assert contract["receiver"] == slp.JSON["master address"]
         # return True if assertion only asked (test if contract is valid)
@@ -108,9 +108,10 @@ def apply_genesis(contract, **options):
             dbapi.db.contracts.insert_one(
                 dict(
                     tokenId=tokenId, height=contract["height"],
-                    index=contract["index"], type="aslp2", name=contract["na"],
-                    owner=contract["emitter"], document=contract["du"],
-                    notes=contract.get("no", None), paused=False
+                    index=contract["index"], type=slp.SLP2,
+                    name=contract["na"], owner=contract["emitter"],
+                    document=contract["du"], notes=contract.get("no", None),
+                    paused=False
                 )
             ),
             # add new owner wallet

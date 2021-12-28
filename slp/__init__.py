@@ -11,6 +11,8 @@ import logging.handlers
 with io.open(os.path.join(os.path.dirname(__file__), "slp.json")) as f:
     JSON = json.load(f)
 
+SLP1, SLP2, *_ = JSON["slp types"]
+
 ROOT = os.path.abspath(os.path.dirname(__file__))
 BLOCKCHAIN_NODE = False
 PUBLIC_IP = "127.0.0.1"

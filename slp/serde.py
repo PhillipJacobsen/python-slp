@@ -12,8 +12,6 @@ import struct
 import binascii
 
 
-SLP1, SLP2 = slp.JSON["slp types"]
-
 # REGEXP for validation, can be used for webhook subscription
 SLP = re.compile(slp.JSON["serialized regex"])
 INPUT_TYPES = slp.JSON.get("input types", {})
@@ -72,32 +70,32 @@ def pack_slp1_genesis(de, qt, sy, na, du="", no="", pa=False, mi=False):
         int(de), int(qt), bool(pa), bool(mi)
     )
     varia = _pack_varia(sy, na, du, no)
-    return SLP1 + "://" + binascii.hexlify(fixed).decode() + varia.decode()
+    return slp.SLP1 + "://" + binascii.hexlify(fixed).decode() + varia.decode()
 
 
 def pack_slp1_fungible(tb, id, qt, no=""):
     fixed = struct.pack("<B16sQ", INPUT_TYPES[tb], binascii.unhexlify(id), qt)
     varia = _pack_varia(no)
-    return SLP1 + "://" + binascii.hexlify(fixed).decode() + varia.decode()
+    return slp.SLP1 + "://" + binascii.hexlify(fixed).decode() + varia.decode()
 
 
 def pack_slp1_non_fungible(tb, id, no=""):
     fixed = struct.pack("<B16sQ", INPUT_TYPES[tb], binascii.unhexlify(id))
     varia = _pack_varia(no)
-    return SLP1 + "://" + binascii.hexlify(fixed).decode() + varia.decode()
+    return slp.SLP1 + "://" + binascii.hexlify(fixed).decode() + varia.decode()
 
 
 # -- SLP2 SERIALIZATION --
 def pack_slp2_genesis(sy, na, du="", no="", pa=False):
     fixed = struct.pack("<B?", INPUT_TYPES["GENESIS"], pa)
     varia = _pack_varia(sy, na, du, no)
-    return SLP2 + "://" + binascii.hexlify(fixed).decode() + varia.decode()
+    return slp.SLP2 + "://" + binascii.hexlify(fixed).decode() + varia.decode()
 
 
 def pack_slp2_non_fungible(tb, id, no=""):
     fixed = struct.pack("<B16sQ", INPUT_TYPES[tb], binascii.unhexlify(id))
     varia = _pack_varia(no)
-    return SLP2 + "://" + binascii.hexlify(fixed).decode() + varia.decode()
+    return slp.SLP2 + "://" + binascii.hexlify(fixed).decode() + varia.decode()
 
 
 def pack_slp2_addmeta(id, **data):
@@ -125,7 +123,7 @@ def pack_slp2_addmeta(id, **data):
     result.append(serial)
     # build all smartbridges adding chunk number between fixed and serial
     return [
-        SLP2 + "://" + (
+        slp.SLP2 + "://" + (
             binascii.hexlify(
                 fixed + struct.pack("<B", result.index(serial) + 1)
             ).decode() + serial.decode()
@@ -138,7 +136,7 @@ def pack_slp2_voidmeta(id, tx):
         "<B16s128s", INPUT_TYPES["VOIDMETA"],
         binascii.unhexlify(id), binascii.unhexlify(tx)
     )
-    return SLP2 + "://" + binascii.hexlify(fixed).decode()
+    return slp.SLP2 + "://" + binascii.hexlify(fixed).decode()
 
 
 # -- SLP1 DESERIALIZATION --
@@ -151,7 +149,7 @@ def unpack_slp1_genesis(data):
         **_unpack_varia(varia, "sy", "na", "du", "no")
     )
     result["tp"] = TYPES_INPUT[result["tp"]]
-    return {SLP1: result}
+    return {slp.SLP1: result}
 
 
 def unpack_slp1_fungible(data):
@@ -164,7 +162,7 @@ def unpack_slp1_fungible(data):
     )
     result["id"] = binascii.hexlify(result["id"]).decode()
     result["tp"] = TYPES_INPUT[result["tp"]]
-    return {SLP1: result}
+    return {slp.SLP1: result}
 
 
 def unpack_slp1_non_fungible(data):
@@ -177,7 +175,7 @@ def unpack_slp1_non_fungible(data):
     )
     result["id"] = binascii.hexlify(result["id"]).decode()
     result["tp"] = TYPES_INPUT[result["tp"]]
-    return {SLP1: result}
+    return {slp.SLP1: result}
 
 
 # -- SLP2 DESERIALIZATION --
@@ -190,7 +188,7 @@ def unpack_slp2_genesis(data):
         **_unpack_varia(varia, "sy", "na", "du", "no")
     )
     result["tp"] = TYPES_INPUT[result["tp"]]
-    return {SLP2: result}
+    return {slp.SLP2: result}
 
 
 def unpack_slp2_non_fungible(data):
@@ -203,7 +201,7 @@ def unpack_slp2_non_fungible(data):
     )
     result["id"] = binascii.hexlify(result["id"]).decode()
     result["tp"] = TYPES_INPUT[result["tp"]]
-    return {SLP2: result}
+    return {slp.SLP2: result}
 
 
 def unpack_slp2_addmeta(data):
@@ -216,7 +214,7 @@ def unpack_slp2_addmeta(data):
     )
     result["id"] = binascii.hexlify(result["id"]).decode()
     result["tp"] = TYPES_INPUT[result["tp"]]
-    return {SLP2: result}
+    return {slp.SLP2: result}
 
 
 def unpack_slp2_voidmeta(data):
@@ -229,11 +227,11 @@ def unpack_slp2_voidmeta(data):
     )
     result["id"] = binascii.hexlify(result["id"]).decode()
     result["tx"] = binascii.hexlify(result["tx"]).decode()
-    return {SLP2: result}
+    return {slp.SLP2: result}
 
 
 MAP = {
-    SLP1: {
+    slp.SLP1: {
         "00": unpack_slp1_genesis,
         "01": unpack_slp1_fungible,
         "02": unpack_slp1_fungible,
@@ -244,7 +242,7 @@ MAP = {
         "07": unpack_slp1_non_fungible,
         "08": unpack_slp1_non_fungible
     },
-    SLP2: {
+    slp.SLP2: {
         "00": unpack_slp2_genesis,
         "04": unpack_slp2_non_fungible,
         "05": unpack_slp2_non_fungible,

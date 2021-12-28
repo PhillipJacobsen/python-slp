@@ -36,7 +36,7 @@ def apply_genesis(contract, **options):
         # initial quantity should avoid decimal part
         assert contract["qt"] % 1 == 0
         # blockchain transaction amount have to match GENESIS cost
-        assert contract["cost"] >= slp.JSON["GENESIS cost"]["aslp1"]
+        assert contract["cost"] >= slp.JSON["GENESIS cost"][slp.SLP1]
         # GENESIS contract have to be sent to master address
         assert contract["receiver"] == slp.JSON["master address"]
         # return True if assertion only asked (test if contract is valid)
@@ -62,10 +62,11 @@ def apply_genesis(contract, **options):
             dbapi.db.contracts.insert_one(
                 dict(
                     tokenId=tokenId, height=contract["height"],
-                    index=contract["index"], type="aslp1", name=contract["na"],
-                    owner=contract["emitter"], globalSupply=globalSupply,
-                    document=contract["du"], notes=contract.get("no", None),
-                    paused=False, minted=minted, burned=_decimal128(0.),
+                    index=contract["index"], type=slp.SLP1,
+                    name=contract["na"], owner=contract["emitter"],
+                    globalSupply=globalSupply, document=contract["du"],
+                    notes=contract.get("no", None), paused=False,
+                    minted=minted, burned=_decimal128(0.),
                     exited=_decimal128(0.)
                 )
             ),

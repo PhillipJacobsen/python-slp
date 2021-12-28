@@ -76,14 +76,3 @@ def find(collection, **kw):
             "Error trying to fetch data : %s\n%s", kw, traceback.format_exc()
         )
         return {"status": 501, "msg": "Internal Error: %r" % error}
-
-
-# @srv.bind("/slp2/metadata/<str:tokenId>")
-# def find_metadata(collection, tokenId, address):
-#     metadata = {}
-#     for r in dbapi.slp2.find(tokenId=tokenId):
-#         metadata.update(r.get("metadata", {}))
-#     try:
-#         return {"status": 200, "meta": None, "data": metadata}
-#     except Exception:
-#         return {"status": 501, "msg": "Internal Error"}
