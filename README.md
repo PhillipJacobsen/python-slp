@@ -42,7 +42,7 @@ table name|searchable fields
 -|-
 slp1|`address`, `tokenId`, `blockStamp`, `owner`, `frozen`
 slp2|`address`, `tokenId`, `blockStamp`, `owner`, `frozen`
-journal|`slp_type`, `emitter`, `receiver`, `legit`, `tb`, `sy`, `id`, `pa`, `mi`
+journal|`slp_type`, `emitter`, `receiver`, `legit`, `tp`, `sy`, `id`, `pa`, `mi`
 contracts|`height`, `index`, `type`, `paused`
 rejected|`height`, `index`, `type`, `paused`
 
