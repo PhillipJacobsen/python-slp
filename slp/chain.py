@@ -43,7 +43,7 @@ import importlib
 import traceback
 import threading
 
-from slp import serde, dbapi
+from slp import loadJson, serde, dbapi
 from usrv import req
 
 
@@ -77,13 +77,18 @@ def get_token_id(slp_type, symbol, blockheight, txid):
     return hashlib.md5(raw.encode("utf-8")).hexdigest()
 
 
+def subscribed():
+    return os.path.exists(
+        os.path.join(slp.ROOT, ".json", f"{slp.JSON['database name']}.wbh")
+    )
+
+
 def subscribe():
     """
     Webhook subscription management.
     """
 
-    webhook = os.path.join(os.path.dirname(__file__), "webhook.json")
-    if os.path.exists(webhook):
+    if subscribed():
         return False
 
     data = req.POST.api.webhooks(
@@ -97,33 +102,35 @@ def subscribe():
 
     if data != {}:
         data["key"] = dump_webhook_token(data.pop("token"))
-        with open(webhook, "w") as f:
-            json.dump(data, f)
+        slp.dumpJson(
+            data, f"{slp.JSON['database name']}.wbh",
+            os.path.join(slp.ROOT, ".json")
+        )
         slp.LOG.info("Subscribed to %s", slp.JSON["webhook peer"])
+        return True
     else:
         slp.LOG.error("Subscription to %s failed", slp.JSON["webhook peer"])
+        return False
 
 
 def unsubscribe():
     """
     Webhook subscription management.
     """
-
-    webhook = os.path.join(os.path.dirname(__file__), "webhook.json")
-    if not os.path.exists(webhook):
-        return False
-
-    with open(webhook) as f:
-        data = json.load(f)
+    data = loadJson(
+        f"{slp.JSON['database name']}.wbh", os.path.join(slp.ROOT, ".json")
+    )
+    if data:
         resp = req.DELETE.api.webhooks(
-            data["id"],
-            peer=slp.JSON["webhook peer"]
+            data["id"], peer=slp.JSON["webhook peer"]
         )
         if resp.get("status", 300) < 300:
             os.remove(data["key"])
-            os.remove(webhook)
+            os.remove(os.path.join(slp.ROOT, ".json", "webhook.json"))
         slp.LOG.info("Unsubscribed from %s", slp.JSON["webhook peer"])
         return resp
+    else:
+        return False
 
 
 def dump_webhook_token(token):
@@ -144,12 +151,6 @@ def dump_webhook_token(token):
             }, out
         )
     return filename
-
-
-def subscribed():
-    return os.path.exists(
-        os.path.join(os.path.dirname(__file__), "webhook.json")
-    )
 
 
 def check_webhook_token(authorization):
