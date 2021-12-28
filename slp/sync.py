@@ -1,5 +1,6 @@
 # -*- coding:utf-8 -*-
 
+import os
 import slp
 import random
 import traceback
@@ -24,10 +25,11 @@ class Processor(threading.Thread):
         Processor.STOP.set()
 
     def run(self):
+        markfolder = os.path.join(slp.ROOT, ".json")
         timeout = req.EndPoint.timeout
         req.EndPoint.timeout = 30
         # load last processing mark if any
-        mark = slp.loadJson("processor.mark", ".json")
+        mark = slp.loadJson("processor.mark", markfolder)
         peers = chain.select_peers()
         # get last good peer if any else choose a random one
         peer = mark.get("peer", random.choice(peers))
@@ -81,7 +83,7 @@ class Processor(threading.Thread):
                         for block in blocks:
                             chain.BlockParser.JOB.put(block)
                             mark["last parsed block"] = block["height"]
-                            slp.dumpJson(mark, "processor.mark", ".json")
+                            slp.dumpJson(mark, "processor.mark", markfolder)
                             last_parsed = block["height"]
 
                     page += 1
