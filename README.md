@@ -1,6 +1,6 @@
 **Side Ledger Protocol**
 
-  > This is a reflexion about network concensus around Side Ledger Protocol developped on Qredit blockchain. Purpose here is to evaluate the actions that have to be done so SLP networt could act as a side-blockchain. The porpose of this documentation is to maximize abstraction level of SLP so it can run with any blockchain where smartbridge or equivalent can be embeded in a transaction.
+  <!-- > This is a reflexion about network concensus around Side Ledger Protocol developped on Qredit blockchain. Purpose here is to evaluate the actions that have to be done so SLP networt could act as a side-blockchain. The porpose of this documentation is to maximize abstraction level of SLP so it can run with any blockchain where smartbridge or equivalent can be embeded in a transaction. -->
 
 # Run python-slp node
 
@@ -40,9 +40,11 @@ An endpoint is available to get data from mongo database with the pattern:
 
 table name|searchable fields
 -|-
-slp1/slp2|`address`, `tokenId`, `blockStamp`, `owner`, `frozen`
+slp1|`address`, `tokenId`, `blockStamp`, `owner`, `frozen`
+slp2|`address`, `tokenId`, `blockStamp`, `owner`, `frozen`
 journal|`slp_type`, `emitter`, `receiver`, `legit`, `tb`, `sy`, `id`, `pa`, `mi`
 contracts|`height`, `index`, `type`, `paused`
+rejected|`height`, `index`, `type`, `paused`
 
 ```bash
 curl http://127.0.0.1:5001/slp2/find?tokenId=0c1b5ed5cff799a0dee2cadc6d02ac60
