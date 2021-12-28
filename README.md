@@ -36,7 +36,7 @@ sudo systemctl enable slp.service
 
 An endpoint is available to get data from mongo database with the pattern:
 
-`/<table_name>/find?[field=value][&orderBy=field:direction..][&page=number]`
+`/<table_name>/find?[field=value&..][&orderBy=field1:direction1,field2:direction2,..][&page=number]`
 
 table name|searchable fields
 -|-
