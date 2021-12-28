@@ -9,12 +9,12 @@ First [install Mongo DB](https://docs.mongodb.com/manual/tutorial/#installation)
 Then install `python-slp` and its dependencies :
 
 ```sh
-python -m pip install git+https://github.com/Moustikitos/python-slp#egg=slp
+git clone --branch master https://github.com/Moustikitos/python-slp.git
 python -m pip install git+https://github.com/Moustikitos/micro-server#egg=usrv
 python -m pip install pymongo
 ```
 
-Run `python-slp` synchronizer
+Run in `~/python-slp` :
 
 ```python
 from slp import sync
