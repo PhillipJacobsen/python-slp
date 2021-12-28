@@ -19,7 +19,7 @@ def deploy(host="0.0.0.0", port=5001):
     executable = normpath(sys.executable)
     gunicorn_conf = os.path.normpath(
         os.path.abspath(
-            os.path.expanduser("~/ark-listener/gunicorn.conf.py")
+            os.path.expanduser("~/python-slp/gunicorn.conf.py")
         )
     )
 
@@ -48,7 +48,7 @@ WantedBy=multi-user.target
         })
 
     if os.system("%s -m pip show gunicorn" % executable) != "0":
-        os.system("%s -m pip install gunicorn%s" % executable)
+        os.system("%s -m pip install gunicorn" % executable)
     os.system("chmod +x ./slp.service")
     os.system("sudo cp %s %s" % (gunicorn_conf, normpath(sys.prefix)))
     os.system("sudo mv --force ./slp.service /etc/systemd/system")
