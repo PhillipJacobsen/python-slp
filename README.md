@@ -34,7 +34,7 @@ sudo systemctl enable slp.service
 
 ## API endpoint for slp database
 
-An endpoint is available to get data from mongo database. with the pattern
+An endpoint is available to get data from mongo database with the pattern:
 
 `/<table_name>/find?[field=value][&orderBy=field:direction..][&page=number]`
 
