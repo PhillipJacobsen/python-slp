@@ -85,7 +85,7 @@ def is_blockchain_node():
 
 
 def loadJson(name, folder=None):
-    filename = os.path.join(JSON if not folder else folder, name)
+    filename = os.path.join(ROOT if not folder else folder, name)
     if os.path.exists(filename):
         with io.open(filename, "r", encoding="utf-8") as in_:
             data = json.load(in_)
@@ -95,7 +95,7 @@ def loadJson(name, folder=None):
 
 
 def dumpJson(data, name, folder=None):
-    filename = os.path.join(JSON if not folder else folder, name)
+    filename = os.path.join(ROOT if not folder else folder, name)
     try:
         os.makedirs(os.path.dirname(filename))
     except OSError:

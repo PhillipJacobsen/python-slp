@@ -1,5 +1,6 @@
 # -*- coding:utf-8 -*-
 
+import os
 import slp
 import decimal
 import traceback
@@ -80,7 +81,7 @@ def add_reccord(height, index, txid, slp_type, emitter, receiver, cost, **kw):
             dict(
                 slp.loadJson(f"unvalidated.{slp_type}", ".json"),
                 **{f"{height}#{index}": fields}
-            ), f"unvalidated.{slp_type}", ".json"
+            ), f"unvalidated.{slp_type}", os.path.join(slp.ROOT, ".json")
         )
         return False
 
