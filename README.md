@@ -2,23 +2,26 @@
 
   > This is a reflexion about network concensus around Side Ledger Protocol developped on Qredit blockchain. Purpose here is to evaluate the actions that have to be done so SLP networt could act as a side-blockchain. The porpose of this documentation is to maximize abstraction level of SLP so it can run with any blockchain where smartbridge or equivalent can be embeded in a transaction.
 
-**Try to build slp database from ARK API**
+## Run python-slp node
 
-First [install Mongo DB](https://docs.mongodb.com/manual/tutorial/#installation)
-
-Then install `python-slp` and its dependencies :
+First [install Mongo DB](https://docs.mongodb.com/manual/tutorial/#installation) and run the mongodb servide:
 
 ```sh
-git clone --branch master https://github.com/Moustikitos/python-slp.git
-python -m pip install git+https://github.com/Moustikitos/micro-server#egg=usrv
-python -m pip install pymongo
+sudo systemctl start mongod.service
 ```
 
-Run in `~/python-slp` :
+Use install cmd:
 
-```python
-from slp import sync
-sync.Processor()
+```sh
+bash <(curl -s https://raw.githubusercontent.com/Moustikitos/python-slp/master/slp-install.sh)
+```
+
+Then deploy node from python virtual environement:
+
+```sh
+. ~/.local/share/slp/venv/bin/activate
+cd ~/python-slp
+python -c "import app;app.deploy(host='0.0.0.0', port=5100)"
 ```
 
 <!-- # Definitions and rationales
