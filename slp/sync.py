@@ -25,6 +25,10 @@ class Processor(threading.Thread):
         Processor.STOP.set()
 
     def run(self):
+        # subscribe to blockchain webhook if not already done
+        if not chain.subscribed():
+            chain.subscribe()
+        # 
         markfolder = os.path.join(slp.ROOT, ".json")
         timeout = req.EndPoint.timeout
         req.EndPoint.timeout = 30
@@ -76,7 +80,7 @@ class Processor(threading.Thread):
                     ]
 
                     slp.LOG.info(
-                        "Parsing %d blocks from page %d", len(blocks), page
+                        "Fetching %d blocks from page %d", len(blocks), page
                     )
 
                     if len(blocks):

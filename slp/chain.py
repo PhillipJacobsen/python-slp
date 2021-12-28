@@ -144,6 +144,12 @@ def dump_webhook_token(token):
     return filename
 
 
+def subscribed():
+    return os.path.exists(
+        os.path.join(os.path.dirname(__file__), "webhook.json")
+    )
+
+
 def check_webhook_token(authorization):
     """
     Secure webhook token check.

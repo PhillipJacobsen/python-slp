@@ -103,9 +103,14 @@ class Messenger(threading.Thread):
                 if "webhook" in request:
                     if not sync.Processor.STOP.is_set():
                         chain.manage_block(**request["webhook"])
+                    else:
+                        slp.LOG.info(
+                            "Waiting for blochain sync, block %s dropped",
+                            request["webhook"]
+                        )
                 else:
                     msg = request.get("data", {})
-                    slp.LOG.info("performing message: %r", msg)
+                    slp.LOG.info("Performing message: %r", msg)
                     if "hello" in msg:
                         node.manage_hello(msg)
             except Exception as error:
