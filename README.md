@@ -2,15 +2,15 @@
 
   > This is a reflexion about network concensus around Side Ledger Protocol developped on Qredit blockchain. Purpose here is to evaluate the actions that have to be done so SLP networt could act as a side-blockchain. The porpose of this documentation is to maximize abstraction level of SLP so it can run with any blockchain where smartbridge or equivalent can be embeded in a transaction.
 
-## Run python-slp node
+# Run python-slp node
 
-First [install Mongo DB](https://docs.mongodb.com/manual/tutorial/#installation) and run the mongodb servide:
+First [install Mongo DB](https://docs.mongodb.com/manual/tutorial/#installation) and run the mongodb service:
 
 ```sh
 sudo systemctl start mongod.service
 ```
 
-Use install cmd:
+Install `python-slp` node via easy installation script:
 
 ```sh
 bash <(curl -s https://raw.githubusercontent.com/Moustikitos/python-slp/master/slp-install.sh)
@@ -22,6 +22,50 @@ Then deploy node from python virtual environement:
 . ~/.local/share/slp/venv/bin/activate
 cd ~/python-slp
 python -c "import app;app.deploy(host='0.0.0.0', port=5100)"
+```
+
+`python-slp` node will the run as a background service on your system. Status and logs are accessible from `systemctl` and `journalctl` commands.
+
+`python-slp` can also be launched on server startup:
+
+```sh
+sudo systemctl enable slp.service
+```
+
+## API endpoint for slp database
+
+An endpoint is available to get data from mongo database. with the pattern
+
+`/<table_name>/find?[field=value][&orderBy=field:direction..][&page=number]`
+
+table name|searchable fields
+-|-
+slp1/slp2|`address`, `tokenId`, `blockStamp`, `owner`, `frozen`
+journal|`slp_type`, `emitter`, `receiver`, `legit`, `tb`, `sy`, `id`, `pa`, `mi`
+contracts|`height`, `index`, `type`, `paused`
+
+```bash
+curl http://127.0.0.1:5001/slp2/find?tokenId=0c1b5ed5cff799a0dee2cadc6d02ac60
+{
+  "status": 200,
+  "meta": {"page": 1, "limit": 100, "totalCount": 2},
+  "data": [
+    {
+      "address": "ARypXg91KdTCFxUCtjktZMdDEne3AcA8A7",
+      "tokenId": "0c1b5ed5cff799a0dee2cadc6d02ac60",
+      "blockStamp": "17902732#1",
+      "owner": false,
+      "metadata": {"trait_background": "ice", "trait_base": "zombie", "trait_clothing": "astronaut", "trait_face": "angry", "trait_hat": "beanie"}
+    },
+    {
+      "address": "AR2xF13MYMnTKGiqF5Z6oNp1nMue9Qpp84",
+      "tokenId": "0c1b5ed5cff799a0dee2cadc6d02ac60",
+      "blockStamp": "17902732#1",
+      "owner": true,
+      "metadata": {}
+    }
+  ]
+}
 ```
 
 <!-- # Definitions and rationales
