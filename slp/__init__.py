@@ -8,7 +8,7 @@ import socket
 import logging
 import logging.handlers
 
-with io.open(os.path.join(os.path.dirname(__file__), "slp.json")) as f:
+with io.open(os.path.join(os.path.dirname(__file__), "ark.json")) as f:
     JSON = json.load(f)
 
 SLP1, SLP2, *_ = JSON["slp types"]
