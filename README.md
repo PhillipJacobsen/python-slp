@@ -46,6 +46,8 @@ contracts|`height`, `index`, `type`, `paused`
 
 ```bash
 curl http://127.0.0.1:5001/slp2/find?tokenId=0c1b5ed5cff799a0dee2cadc6d02ac60
+```
+```json
 {
   "status": 200,
   "meta": {"page": 1, "limit": 100, "totalCount": 2},
