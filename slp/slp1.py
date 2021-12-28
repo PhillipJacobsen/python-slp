@@ -63,10 +63,10 @@ def apply_genesis(contract, **options):
                 dict(
                     tokenId=tokenId, height=contract["height"],
                     index=contract["index"], type=slp.SLP1,
-                    name=contract["na"], owner=contract["emitter"],
-                    globalSupply=globalSupply, document=contract["du"],
-                    notes=contract.get("no", None), paused=False,
-                    minted=minted, burned=_decimal128(0.),
+                    name=contract["na"], symbol=contract["sy"],
+                    owner=contract["emitter"], globalSupply=globalSupply,
+                    document=contract["du"], notes=contract.get("no", None),
+                    paused=False, minted=minted, burned=_decimal128(0.),
                     exited=_decimal128(0.)
                 )
             ),

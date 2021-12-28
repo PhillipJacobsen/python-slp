@@ -51,8 +51,7 @@ def select_peers():
     peers = []
     try:
         candidates = req.GET.api.peers(
-            peer=slp.JSON["api peer"],
-            orderBy="height:desc",
+            peer=slp.JSON["api peer"], orderBy="height:desc",
             headers=slp.HEADERS
         ).get("data", [])
     except Exception:

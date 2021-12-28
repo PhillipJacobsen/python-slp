@@ -109,9 +109,9 @@ def apply_genesis(contract, **options):
                 dict(
                     tokenId=tokenId, height=contract["height"],
                     index=contract["index"], type=slp.SLP2,
-                    name=contract["na"], owner=contract["emitter"],
-                    document=contract["du"], notes=contract.get("no", None),
-                    paused=False
+                    name=contract["na"], symbol=contract["sy"],
+                    owner=contract["emitter"], document=contract["du"],
+                    notes=contract.get("no", None), paused=False
                 )
             ),
             # add new owner wallet
