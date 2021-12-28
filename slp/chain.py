@@ -99,7 +99,9 @@ def subscribe():
         data["key"] = dump_webhook_token(data.pop("token"))
         with open(webhook, "w") as f:
             json.dump(data, f)
-    slp.LOG.info("Subscribed to %s", slp.JSON["webhook peer"])
+        slp.LOG.info("Subscribed to %s", slp.JSON["webhook peer"])
+    else:
+        slp.LOG.error("Subscription to %s failed", slp.JSON["webhook peer"])
 
 
 def unsubscribe():
