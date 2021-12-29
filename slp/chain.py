@@ -91,7 +91,7 @@ def subscribe():
         slp.LOG.info("Already subscribed to %s", slp.JSON["webhook peer"])
         return False
 
-    if slp.JSON["webhook peer"][:10] in ["http://loca", "http://127."]:
+    if slp.JSON["webhook peer"][:11] in ["http://loca", "http://127."]:
         ip = "127.0.0.1"
     else:
         ip = slp.PUBLIC_IP
@@ -316,6 +316,10 @@ class BlockParser(threading.Thread):
             block = BlockParser.JOB.get()
             if block is not None:
                 BlockParser.LOCK.acquire()
+                # diff between api data and webhook data
+                block["transactions"] = block.get(
+                    "numberOfTransactions", block["transactions"]
+                )
                 slp.LOG.info(
                     "Parsing %d transaction(s) from block %s",
                     block["transactions"], block["height"]
