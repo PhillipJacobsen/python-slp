@@ -89,6 +89,8 @@ WantedBy=multi-user.target
     os.system("sudo cp %s %s" % (gunicorn_conf, normpath(sys.prefix)))
     os.system("sudo mv --force ./slp.service /etc/systemd/system")
     os.system("sudo systemctl daemon-reload")
+    if not os.system("sudo systemctl restart mongod"):
+        os.system("sudo systemctl start mongod")
     if not os.system("sudo systemctl restart slp"):
         os.system("sudo systemctl start slp")
 
@@ -111,7 +113,9 @@ class SlpApp(srv.MicroJsonApp):
         msg.Messenger.stop()
         msg.Messenger.put({})
         sync.chain.BlockParser.stop()
-        sync.chain.BlockParser.JOB.put({})
+        sync.chain.BlockParser.JOB.put({
+            "heigh": -1, "id": None, "transactions": 0
+        })
 
 
 if __name__ == "__main__":
