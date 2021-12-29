@@ -3,50 +3,86 @@
 
 import io
 import os
+import re
 import sys
 import slp
 import signal
+import logging
+import logging.handlers
 
 from usrv import srv
-from slp import sync, node, msg, api
+from pymongo import MongoClient
+from bson.decimal128 import Decimal128
+from slp import sync, node, msg, api, dbapi
 
 
-def deploy(host="0.0.0.0", port=5001):
+def init(name):
+    data = slp.loadJson(f"{name}.json")
+    if len(data) == 0:
+        slp.LOG.error("Missing JSON configuration file for %s", name)
+        raise Exception("No configuration file found for %s" % name)
+    slp.JSON.update(data)
+    database_name = slp.JSON['database name']
+    slp.REGEXP = re.compile(slp.JSON["serialized regex"])
+    slp.INPUT_TYPES = slp.JSON.get("input types", {})
+    slp.TYPES_INPUT = dict([v, k] for k, v in slp.INPUT_TYPES.items())
+    # update validation field 'tp'
+    slp.VALIDATION["tp"] = lambda value: value in slp.JSON["input types"]
+    # create the SLPN global variables
+    for slp_type in slp.JSON.get("slp types"):
+        setattr(slp, slp_type[1:].upper(), slp_type)
+    # initialize logger
+    # TODO: add log rotation parameters to slp.json
+    slp.LOG.handlers.clear()
+    slp.LOG.setLevel(slp.JSON.get("log level", "DEBUG"))
+    logpath = os.path.join(slp.ROOT, ".log", f"{database_name}.log")
+    os.makedirs(os.path.dirname(logpath), exist_ok=True)
+    slp.LOG.addHandler(
+        logging.handlers.TimedRotatingFileHandler(
+            logpath, when="H", interval=1
+        )
+    )
+    # MONGO DB definitions
+    dbapi.db = MongoClient(slp.JSON.get("mongo url", None))[database_name]
+    dbapi.db.contracts.create_index("tokenId", unique=True)
+    dbapi.db.journal.create_index([("height", 1), ("index", 1)], unique=True)
+    dbapi.db.rejected.create_index([("height", 1), ("index", 1)], unique=True)
+    dbapi.db.slp1.create_index([("address", 1), ("tokenId", 1)], unique=True)
+    dbapi.db.slp2.create_index([("address", 1), ("tokenId", 1)], unique=True)
+    # generate Decimal128 builders for all legit slp1 token
+    for reccord in dbapi.db.journal.find(
+        {"tp": "GENESIS", "slp_type": slp.SLP1, "legit": True}
+    ):
+        slp.DECIMAL128[reccord["id"]] = \
+            lambda v, de=reccord.get('de', 0): Decimal128(f"%.{de}f" % v)
+
+
+def deploy(host="0.0.0.0", port=5001, blockchain="ark"):
     """
     Deploy slp node on ubuntu as system daemon.
     """
     normpath = os.path.normpath
     executable = normpath(sys.executable)
-    gunicorn_conf = os.path.normpath(
-        os.path.abspath(
-            os.path.expanduser("~/python-slp/gunicorn.conf.py")
-        )
+    package_path = normpath(os.path.abspath(os.path.dirname(slp.__path__[0])))
+    gunicorn_conf = normpath(
+        os.path.abspath(os.path.join(package_path, "gunicorn.conf.py"))
     )
 
     with io.open("./slp.service", "w") as unit:
-        unit.write(u"""[Unit]
+        unit.write(f"""[Unit]
 Description=Side ledger Protocol service
 After=network.target
 [Service]
-User=%(usr)s
-WorkingDirectory=%(wkd)s
-Environment=PYTHONPATH=%(path)s
-ExecStart=%(bin)s/gunicorn 'app:SlpApp()' \
---bind=%(host)s:%(port)s --workers=1 --access-logfile -
+User={os.environ.get("USER", "unknown")}
+WorkingDirectory={normpath(sys.prefix)}
+Environment=PYTHONPATH={package_path}
+ExecStart={os.path.join(os.path.dirname(executable), "gunicorn")} \
+'app:SlpApp(blockchain="{blockchain}")' --bind={host}:{port} --workers=1 \
+--access-logfile -
 Restart=always
 [Install]
 WantedBy=multi-user.target
-""" % {
-            "usr": os.environ.get("USER", "unknown"),
-            "wkd": normpath(sys.prefix),
-            "path": os.path.abspath(
-                normpath(os.path.dirname(slp.__path__[0]))
-            ),
-            "bin": os.path.dirname(executable),
-            "port": port,
-            "host": host
-        })
-
+""")
     if os.system("%s -m pip show gunicorn" % executable) != "0":
         os.system("%s -m pip install gunicorn" % executable)
     os.system("chmod +x ./slp.service")
@@ -59,7 +95,8 @@ WantedBy=multi-user.target
 
 class SlpApp(srv.MicroJsonApp):
 
-    def __init__(self, host="127.0.0.1", port=5000, loglevel=20):
+    def __init__(self, host="127.0.0.1", port=5000, loglevel=20, **options):
+        init(options.get("blockchain", "ark"))
         srv.MicroJsonApp.__init__(self, host, port, loglevel)
         sync.Processor()
         node.Broadcaster()
