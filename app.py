@@ -109,13 +109,8 @@ class SlpApp(srv.MicroJsonApp):
     def kill():
         sync.Processor.stop()
         node.Broadcaster.stop()
-        node.Broadcaster.broadcast({"bye": "Exiting system"})
         msg.Messenger.stop()
-        msg.Messenger.put({})
         sync.chain.BlockParser.stop()
-        sync.chain.BlockParser.JOB.put({
-            "height": -1, "id": None, "transactions": 0
-        })
 
 
 if __name__ == "__main__":
