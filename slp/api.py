@@ -15,6 +15,8 @@ SEARCH_FIELDS = "address,tokenId,blockStamp,owner,frozen,"
 "slp_type,emitter,receiver,legit,tp,sy,id,pa,mi,"
 "height,index,type,paused,symbol".split(",")
 
+DECIMAL128_FIELDS = "balance,minted,burned,exited,globalSupply".split(",")
+
 
 @srv.bind("/<str:collection>/find", methods=["GET"])
 def find(collection, **kw):
@@ -65,14 +67,16 @@ def find(collection, **kw):
             reccord.pop("_id", False)
             if "metadata" in reccord:
                 reccord["metadata"] = serde._unpack_meta(reccord["metadata"])
+            for key in [k for k in DECIMAL128_FIELDS if k in reccord]:
+                reccord[key] = str(reccord[key].to_decimal())
             data.append(reccord)
 
         return {
             "status": 200,
             "meta": {
-                "page": page,
                 "count": len(data),
                 "totalCount": total,
+                "page": page,
                 "pageCount": pages
             },
             "data": data
