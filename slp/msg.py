@@ -19,7 +19,7 @@ def listen_blockchain(**request):
     possible.
     """
     if request["method"] == "POST":
-        return {"queued": Messenger.put({"webhook": request})}
+        return {"queued": Messenger.put(request)}
 
 
 # listen requests to /message endpoint
@@ -102,9 +102,10 @@ class Messenger(threading.Thread):
             try:
                 request = Messenger.JOB.get()
                 if request is not None:
-                    if "webhook" in request:
+                    # webhook data is {"timestamp", "event", "data"}
+                    if "event" in request.get("data", {}):
                         if not sync.Processor.STOP.is_set():
-                            chain.manage_block(**request["webhook"])
+                            chain.manage_block(**request)
                         else:
                             slp.LOG.info(
                                 "Waiting for blochain sync, block %s dropped",
