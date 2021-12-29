@@ -21,7 +21,7 @@ Then deploy node from python virtual environement:
 ```sh
 . ~/.local/share/slp/venv/bin/activate
 cd ~/python-slp
-python -c "import app;app.deploy(host='0.0.0.0', port=5100)"
+python -c "import app;app.deploy(host='0.0.0.0', port=5100, blockchain='ark')"
 ```
 
 `python-slp` node will the run as a background service on your system. Status and logs are accessible from `systemctl` and `journalctl` commands.

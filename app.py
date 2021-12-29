@@ -77,7 +77,7 @@ User={os.environ.get("USER", "unknown")}
 WorkingDirectory={normpath(sys.prefix)}
 Environment=PYTHONPATH={package_path}
 ExecStart={os.path.join(os.path.dirname(executable), "gunicorn")} \
-'app:SlpApp(blockchain="{blockchain}")' --bind={host}:{port} --workers=1 \
+"app:SlpApp(blockchain='{blockchain}')" --bind={host}:{port} --workers=1 \
 --access-logfile -
 Restart=always
 [Install]
