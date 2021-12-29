@@ -122,17 +122,20 @@ def unsubscribe():
     """
     Webhook subscription management.
     """
-    data = loadJson(
-        f"{slp.JSON['database name']}.wbh", os.path.join(slp.ROOT, ".json")
-    )
+    webhook = f"{slp.JSON['database name']}.wbh"
+    data = loadJson(webhook, os.path.join(slp.ROOT, ".json"))
     if data:
         resp = req.DELETE.api.webhooks(
             data["id"], peer=slp.JSON["webhook peer"]
         )
         if resp.get("status", 300) < 300:
             os.remove(data["key"])
-            os.remove(os.path.join(slp.ROOT, ".json", "webhook.json"))
-        slp.LOG.info("Unsubscribed from %s", slp.JSON["webhook peer"])
+            os.remove(os.path.join(slp.ROOT, ".json", webhook))
+            slp.LOG.info("Unsubscribed from %s", slp.JSON["webhook peer"])
+        else:
+            slp.LOG.error(
+                "Unsubscription from %s failed", slp.JSON["webhook peer"]
+            )
         return resp
     else:
         return False
