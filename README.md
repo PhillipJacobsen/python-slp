@@ -72,6 +72,15 @@ curl http://127.0.0.1:5001/slp2/find?tokenId=0c1b5ed5cff799a0dee2cadc6d02ac60
 }
 ```
 
+# Releases
+
+## 0.3.0 Aquila
+  - [x] `ubuntu` install script
+  - [x] blockchain syncer
+  - [x] full SLP1 contract execution
+  - [ ] partial SLP2 contract execution (CLONE missing)
+  - [x] mongo db api
+
 <!-- # Definitions and rationales
 
 ## Smartbridge
