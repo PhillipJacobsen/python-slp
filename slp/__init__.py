@@ -3,17 +3,21 @@
 import io
 import os
 import re
-import sys
 import json
 import socket
 import logging
-import logging.handlers
 
+DECIMAL128 = {}
+INPUT_TYPES = {}
+TYPES_INPUT = {}
+JSON = {}
+
+PUBLIC_IP = "127.0.0.1"
+PORT = 5000
 LOG = logging.getLogger("slp")
 ROOT = os.path.abspath(os.path.dirname(__file__))
 BLOCKCHAIN_NODE = False
-PUBLIC_IP = "127.0.0.1"
-PORT = 5000
+REGEXP = re.compile(".*")
 VALIDATION = {
     "id": lambda value: re.match(r"^[0-9a-fA-F]{32}$", value) is not None,
     "qt": lambda value: isinstance(value, (int, float)),
@@ -37,9 +41,6 @@ HEADERS = {
     "Content-Type": "application/json",
     "User-Agent": "Python/usrv - Side Ledger Protocol"
 }
-
-DECIMAL128 = {}
-JSON = {}
 
 
 def validate(**fields):
@@ -90,29 +91,3 @@ def dumpJson(data, name, folder=None):
         pass
     with io.open(filename, "w", encoding="utf-8") as out:
         json.dump(data, out, indent=4)
-
-
-def init(name):
-    global LOG, JSON, VALIDATION
-
-    JSON.update(loadJson(f"{name}.json"))
-
-    for slp_type in JSON.get("slp types"):
-        setattr(sys.modules[__name__], slp_type[1:].upper(), slp_type)
-
-    VALIDATION["tp"] = lambda value: value in JSON["input types"]
-
-    LOG.handlers.clear()
-    LOG.setLevel(JSON.get("log level", "DEBUG"))
-
-    # TODO: add log rotation parameters to slp.json
-    logpath = os.path.join(ROOT, ".log", f"{JSON['database name']}.log")
-    os.makedirs(os.path.dirname(logpath), exist_ok=True)
-    LOG.addHandler(
-        logging.handlers.TimedRotatingFileHandler(
-            logpath, when="H", interval=1
-        )
-    )
-
-
-init("ark")

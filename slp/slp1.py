@@ -17,6 +17,7 @@ def manage(contract, **options):
     Dispatch the contract according to its type.
     """
     try:
+        assert dbapi.db is not None
         assert contract.get("legit", False) is None
         result = getattr(
             sys.modules[__name__], "apply_%s" % contract["tp"].lower()

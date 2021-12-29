@@ -71,7 +71,7 @@ def find(collection, **kw):
             "status": 200,
             "meta": {
                 "page": page,
-                "limit": 100,
+                "count": len(data),
                 "totalCount": total,
                 "pageCount": pages
             },

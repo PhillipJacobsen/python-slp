@@ -5,27 +5,8 @@ import slp
 import decimal
 import traceback
 
-from pymongo import MongoClient
-from bson.decimal128 import Decimal128
-
-
-#
-# MONGO DB DEFINITION ---
-db = MongoClient(slp.JSON.get("mongo url", None))[slp.JSON["database name"]]
-# --- databases ---
-db.contracts.create_index("tokenId", unique=True)
-db.journal.create_index([("height", 1), ("index", 1)], unique=True)
-db.rejected.create_index([("height", 1), ("index", 1)], unique=True)
-db.slp1.create_index([("address", 1), ("tokenId", 1)], unique=True)
-db.slp2.create_index([("address", 1), ("tokenId", 1)], unique=True)
-# ---
-
-# Build Decimal128 builders for all slp1 token
-for reccord in db.journal.find(
-    {"tp": "GENESIS", "slp_type": slp.SLP1, "legit": True}
-):
-    slp.DECIMAL128[reccord["id"]] = \
-        lambda v, de=reccord.get('de', 0): Decimal128(f"%.{de}f" % v)
+# mongo database to be initialized by slp app
+db = None
 
 
 def set_legit(filter, value=True):
