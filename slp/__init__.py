@@ -51,26 +51,18 @@ def validate(**fields):
     return list(tests.values()).count(False) == 0
 
 
-def set_public_ip():
-    """Store the public ip of server in PUBLIC_IP global var"""
-    global PUBLIC_IP
+def get_extern_ip():
+    ip = '127.0.0.1'
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         # doesn't even have to be reachable
         s.connect(('10.255.255.255', 1))
-        PUBLIC_IP = s.getsockname()[0]
+        ip = s.getsockname()[0]
     except Exception:
-        PUBLIC_IP = '127.0.0.1'
+        pass
     finally:
         s.close()
-    return PUBLIC_IP
-
-
-def is_blockchain_node():
-    global BLOCKCHAIN_NODE
-    return os.path.exists(
-        os.path.expanduser("~/.config/ark-core")
-    )
+    return ip
 
 
 def loadJson(name, folder=None):
