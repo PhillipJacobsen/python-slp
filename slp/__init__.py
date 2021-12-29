@@ -113,3 +113,6 @@ def init(name):
             logpath, when="H", interval=1
         )
     )
+
+
+init("ark")
