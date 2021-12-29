@@ -92,10 +92,10 @@ class Processor(threading.Thread):
 
                 else:
                     slp.LOG.info("No block from %s", peer)
-                    if len(peers) <= 1:
-                        peers = chain.select_peers()
                     if peer in peers:
                         peers.remove(peer)
+                    if len(peers) <= 1:
+                        peers = chain.select_peers()
                     peer = random.choice(peers)
 
             except Exception as error:
