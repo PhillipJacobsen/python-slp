@@ -53,7 +53,7 @@ def select_peers():
         candidates = req.GET.api.peers(
             peer=slp.JSON["api peer"], orderBy="height:desc",
             headers=slp.HEADERS
-        ).get("data", [])
+        ).get("data", [slp.JSON["api peer"]])
     except Exception:
         slp.LOG.error("Can not fetch peers from %s", slp.JSON["api peer"])
         peers = [slp.JSON["api peer"]]
@@ -88,7 +88,13 @@ def subscribe():
     """
 
     if subscribed():
+        slp.LOG.info("Already subscribed to %s", slp.JSON["webhook peer"])
         return False
+
+    if slp.JSON["webhook peer"][:10] in ["http://loca", "http://127."]:
+        slp.PUBLIC_IP = req.GET.plain(peer="https://www.ipecho.net").get(
+            "raw", slp.get_extern_ip()
+        )
 
     data = req.POST.api.webhooks(
         peer=slp.JSON["webhook peer"],
@@ -296,6 +302,7 @@ class BlockParser(threading.Thread):
         if BlockParser.LOCK.locked():
             BlockParser.LOCK.release()
         BlockParser.STOP.set()
+        BlockParser.JOB.put(None)
 
     def run(self):
         peers = select_peers()
@@ -303,42 +310,47 @@ class BlockParser(threading.Thread):
         BlockParser.STOP.clear()
         while not BlockParser.STOP.is_set():
             # atomic action starts here ---
-            BlockParser.LOCK.acquire()
             block = BlockParser.JOB.get()
-            slp.LOG.info(
-                "Parsing %d transaction(s) from block %s",
-                block["transactions"], block["height"]
-            )
-            try:
-                contracts = parse_block(block, peer)
-            except Exception:
-                slp.LOG.error(
-                    "Pushing back block %d, not enough transaction found",
-                    block["height"]
+            if block is not None:
+                BlockParser.LOCK.acquire()
+                slp.LOG.info(
+                    "Parsing %d transaction(s) from block %s",
+                    block["transactions"], block["height"]
                 )
-                # put the block to the left of queue to be sure it will be
-                # get first on BlockParser LOCK release
-                with BlockParser.JOB.mutex:
-                    BlockParser.JOB.queue.appendleft(block)
-                if peer in peers:
-                    peers.remove(peer)
-                if len(peers) <= 1:
-                    peers = select_peers()
-                peer = random.choice(peers)
-                BlockParser.LOCK.release()
+                try:
+                    contracts = parse_block(block, peer)
+                except Exception:
+                    slp.LOG.error(
+                        "Pushing back block %d, not enough transaction found",
+                        block["height"]
+                    )
+                    # put the block to the left of queue to be sure it will be
+                    # get first on BlockParser LOCK release
+                    with BlockParser.JOB.mutex:
+                        BlockParser.JOB.queue.appendleft(block)
+                    if peer in peers:
+                        peers.remove(peer)
+                    if len(peers) <= 1:
+                        peers = select_peers()
+                    peer = random.choice(peers)
+                    BlockParser.LOCK.release()
+                else:
+                    BlockParser.LOCK.release()
+                    # atomic action is stopped for sure ---
+                    for contract in contracts:
+                        module = f"slp.{contract['slp_type'][1:]}"
+                        try:
+                            if module not in sys.modules:
+                                importlib.__import__(module)
+                            sys.modules[module].manage(contract)
+                        except ImportError:
+                            slp.LOG.info(
+                                "No modules found to handle '%s' contracts",
+                                contract['slp_type']
+                            )
+                        except Exception as error:
+                            slp.LOG.error(
+                                "%r\n%s", error, traceback.format_exc()
+                            )
             else:
-                BlockParser.LOCK.release()
-                # atomic action is stopped for sure ---
-                for contract in contracts:
-                    module = f"slp.{contract['slp_type'][1:]}"
-                    try:
-                        if module not in sys.modules:
-                            importlib.__import__(module)
-                        sys.modules[module].manage(contract)
-                    except ImportError:
-                        slp.LOG.info(
-                            "No modules found to handle '%s' contracts",
-                            contract['slp_type']
-                        )
-                    except Exception as error:
-                        slp.LOG.error("%r\n%s", error, traceback.format_exc())
+                slp.LOG.info("BlockParser %s clean exit", id(self))

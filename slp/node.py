@@ -93,12 +93,16 @@ class Broadcaster(threading.Thread):
     @staticmethod
     def stop():
         Broadcaster.STOP.set()
+        Broadcaster.JOB.put([None, None])
 
     def run(self):
         # controled infinite loop
         while not Broadcaster.STOP.is_set():
             try:
                 endpoint, msg, *peers = Broadcaster.JOB.get()
-                broadcast(endpoint, msg, *peers)
+                if endpoint is not None:
+                    broadcast(endpoint, msg, *peers)
+                else:
+                    slp.LOG.info("Broadcaster %s clean exit", id(self))
             except Exception as error:
                 slp.LOG.error("%r\n%s", error, traceback.format_exc())

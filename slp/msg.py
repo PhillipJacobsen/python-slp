@@ -94,24 +94,28 @@ class Messenger(threading.Thread):
         if Messenger.LOCK.locked():
             Messenger.LOCK.release()
         Messenger.STOP.set()
+        Messenger.JOB.put(None)
 
     def run(self):
         # controled infinite loop
         while not Messenger.STOP.is_set():
             try:
                 request = Messenger.JOB.get()
-                if "webhook" in request:
-                    if not sync.Processor.STOP.is_set():
-                        chain.manage_block(**request["webhook"])
+                if request is not None:
+                    if "webhook" in request:
+                        if not sync.Processor.STOP.is_set():
+                            chain.manage_block(**request["webhook"])
+                        else:
+                            slp.LOG.info(
+                                "Waiting for blochain sync, block %s dropped",
+                                request["webhook"]
+                            )
                     else:
-                        slp.LOG.info(
-                            "Waiting for blochain sync, block %s dropped",
-                            request["webhook"]
-                        )
+                        msg = request.get("data", {})
+                        slp.LOG.info("Performing message: %r", msg)
+                        if "hello" in msg:
+                            node.manage_hello(msg)
                 else:
-                    msg = request.get("data", {})
-                    slp.LOG.info("Performing message: %r", msg)
-                    if "hello" in msg:
-                        node.manage_hello(msg)
+                    slp.LOG.info("Messenger %s clean exit", id(self))
             except Exception as error:
                 slp.LOG.error("%r\n%s", error, traceback.format_exc())
