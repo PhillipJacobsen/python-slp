@@ -204,6 +204,10 @@ def manage_block(**request):
     # webhook security check
     auth = request.get("headers", {}).get("authorization", "?")
     if not check_webhook_token(auth):
+        slp.LOG.info(
+            "Webhook auth failed with header %s",
+            request.get("headers", {})
+        )
         return False
     # get block header
     body = request.get("data", {})
