@@ -13,7 +13,7 @@ from slp import dbapi, serde
 
 SEARCH_FIELDS = "address,tokenId,blockStamp,owner,frozen,"
 "slp_type,emitter,receiver,legit,tp,sy,id,pa,mi,"
-"height,index,type,paused".split(",")
+"height,index,type,paused,symbol".split(",")
 
 
 @srv.bind("/<str:collection>/find", methods=["GET"])

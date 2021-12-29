@@ -43,8 +43,8 @@ table name|searchable fields
 slp1|`address`, `tokenId`, `blockStamp`, `owner`, `frozen`
 slp2|`address`, `tokenId`, `blockStamp`, `owner`, `frozen`
 journal|`slp_type`, `emitter`, `receiver`, `legit`, `tp`, `sy`, `id`, `pa`, `mi`
-contracts|`tokenId`, `height`, `index`, `type`, `owner`, `paused`
-rejected|`tokenId`, `height`, `index`, `type`, `owner`, `paused`
+contracts|`tokenId`, `height`, `index`, `type`, `owner`, `paused`, `symbol`
+rejected|`tokenId`, `height`, `index`, `type`, `owner`, `paused`, `symbol`
 
 ```bash
 curl http://127.0.0.1:5001/slp2/find?tokenId=0c1b5ed5cff799a0dee2cadc6d02ac60
