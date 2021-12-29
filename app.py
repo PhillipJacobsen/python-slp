@@ -114,7 +114,7 @@ class SlpApp(srv.MicroJsonApp):
         msg.Messenger.put({})
         sync.chain.BlockParser.stop()
         sync.chain.BlockParser.JOB.put({
-            "heigh": -1, "id": None, "transactions": 0
+            "height": -1, "id": None, "transactions": 0
         })
 
 
