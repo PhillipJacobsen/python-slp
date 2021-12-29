@@ -10,7 +10,7 @@ import signal
 import logging
 import logging.handlers
 
-from usrv import srv
+from usrv import srv, req
 from pymongo import MongoClient
 from bson.decimal128 import Decimal128
 from slp import sync, node, msg, api, dbapi
@@ -26,6 +26,9 @@ def init(name):
     slp.REGEXP = re.compile(slp.JSON["serialized regex"])
     slp.INPUT_TYPES = slp.JSON.get("input types", {})
     slp.TYPES_INPUT = dict([v, k] for k, v in slp.INPUT_TYPES.items())
+    slp.PUBLIC_IP = req.GET.plain(peer="https://www.ipecho.net").get(
+        "raw", slp.get_extern_ip()
+    )
     # update validation field 'tp'
     slp.VALIDATION["tp"] = lambda value: value in slp.JSON["input types"]
     # create the SLPN global variables
@@ -57,7 +60,7 @@ def init(name):
             lambda v, de=reccord.get('de', 0): Decimal128(f"%.{de}f" % v)
 
 
-def deploy(host="0.0.0.0", port=5001, blockchain="ark"):
+def deploy(host="127.0.0.1", port=5000, blockchain="ark"):
     """
     Deploy slp node on ubuntu as system daemon.
     """
@@ -77,8 +80,8 @@ User={os.environ.get("USER", "unknown")}
 WorkingDirectory={normpath(sys.prefix)}
 Environment=PYTHONPATH={package_path}
 ExecStart={os.path.join(os.path.dirname(executable), "gunicorn")} \
-"app:SlpApp(blockchain='{blockchain}')" --bind={host}:{port} --workers=1 \
---access-logfile -
+"app:SlpApp('{host}', {port}, blockchain='{blockchain}')" \
+--bind={host}:{port} --workers=1 --access-logfile -
 Restart=always
 [Install]
 WantedBy=multi-user.target
@@ -97,9 +100,12 @@ WantedBy=multi-user.target
 
 class SlpApp(srv.MicroJsonApp):
 
-    def __init__(self, host="127.0.0.1", port=5000, loglevel=20, **options):
+    def __init__(self, host="127.0.0.1", port=5000, **options):
         init(options.get("blockchain", "ark"))
-        srv.MicroJsonApp.__init__(self, host, port, loglevel)
+        slp.PORT = port
+        srv.MicroJsonApp.__init__(
+            self, host, port, loglevel=options.get("loglevel", 20)
+        )
         sync.Processor()
         node.Broadcaster()
         msg.Messenger()
