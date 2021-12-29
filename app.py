@@ -101,8 +101,8 @@ WantedBy=multi-user.target
 class SlpApp(srv.MicroJsonApp):
 
     def __init__(self, host="127.0.0.1", port=5000, **options):
-        init(options.get("blockchain", "ark"))
         slp.PORT = port
+        init(options.get("blockchain", "ark"))
         srv.MicroJsonApp.__init__(
             self, host, port, loglevel=options.get("loglevel", 20)
         )

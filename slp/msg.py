@@ -11,7 +11,7 @@ from slp import node, chain, sync
 from usrv import srv
 
 
-@srv.bind("/block", methods=["POST"])
+@srv.bind("/blocks", methods=["POST"])
 def listen_blockchain(**request):
     """
     Endpoint used to listen webhook data from `chain.subscribe` action. It
@@ -104,12 +104,13 @@ class Messenger(threading.Thread):
                 if request is not None:
                     # webhook data is {"timestamp", "event", "data"}
                     if "event" in request.get("data", {}):
-                        if not sync.Processor.STOP.is_set():
+                        if sync.Processor.STOP.is_set():
                             chain.manage_block(**request)
                         else:
                             slp.LOG.info(
-                                "Waiting for blochain sync, block %s dropped",
-                                request["webhook"]
+                                "Waiting for blochain sync, "
+                                "webhooh request dropped:\n%s",
+                                request
                             )
                     else:
                         msg = request.get("data", {})
