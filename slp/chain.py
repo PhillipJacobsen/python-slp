@@ -92,13 +92,13 @@ def subscribe():
         return False
 
     if slp.JSON["webhook peer"][:10] in ["http://loca", "http://127."]:
-        slp.PUBLIC_IP = req.GET.plain(peer="https://www.ipecho.net").get(
-            "raw", slp.get_extern_ip()
-        )
+        ip = "127.0.0.1"
+    else:
+        ip = slp.PUBLIC_IP
 
     data = req.POST.api.webhooks(
         peer=slp.JSON["webhook peer"],
-        target=f"http://{slp.PUBLIC_IP}/blocks",
+        target=f"http://{ip}:{slp.PORT}/blocks",
         event="block.applied",
         conditions=[
             {"key": "numberOfTransactions", "condition": "gte", "value": "1"}
