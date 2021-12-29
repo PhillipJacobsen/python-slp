@@ -5,6 +5,7 @@ Provide database REST interface.
 """
 
 import slp
+import math
 import traceback
 
 from usrv import srv
@@ -41,6 +42,7 @@ def find(collection, **kw):
 
         # computes count and execute first filter
         total = col.count_documents(kw)
+        pages = int(math.ceil(total / 100.))
         cursor = col.find(kw)
 
         # apply ordering
@@ -67,7 +69,12 @@ def find(collection, **kw):
 
         return {
             "status": 200,
-            "meta": {"page": page, "limit": 100, "totalCount": total},
+            "meta": {
+                "page": page,
+                "limit": 100,
+                "totalCount": total,
+                "pageCount": pages
+            },
             "data": data
         }
 
