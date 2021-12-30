@@ -75,10 +75,11 @@ curl http://127.0.0.1:5001/slp2/find?tokenId=0c1b5ed5cff799a0dee2cadc6d02ac60
 ## current work
   - [x] full SLP2 contract execution
   - [x] SIGTEMR securely handled
+  - [x] run slp API separatly
   - [ ] TODO:
+    - [ ] documentation
     - [ ] use websocket to sync slp database
     - [ ] slp database rebuild before sync process
-    - [ ] run slp API separatly
     - [ ] p2p messaging
     - [ ] improve logging messages
 
