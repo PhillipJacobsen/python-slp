@@ -350,4 +350,57 @@ def apply_revokemeta(contract, **options):
 
 
 def apply_clone(contract, **options):
-    return False
+    tokenId = contract["id"]
+    blockstamp = f"{contract['height']}#{contract['index']}"
+    try:
+        # CLONE contract have to be sent to master address
+        assert contract["receiver"] == slp.JSON["master address"]
+        # TOKEN check ---
+        _token_check(tokenId)
+        # EMITTER check ---
+        _emitter_ownership_check(contract["emitter"], tokenId, blockstamp)
+        # get tokenId genesis reccord from journal
+        reccord = dbapi.db.journal.find_one(
+            {"tp": "GENESIS", "id": contract["id"]}
+        )
+        assert reccord is not None
+        if options.get("assert_only", False):
+            return True
+    except Exception:
+        slp.LOG.debug("!%s", contract)
+        slp.LOG.error("invalid contract: %s", traceback.format_exc())
+        return dbapi.set_legit(contract, False)
+    else:
+        # compute the new id of cloned token
+        new_tokenId = slp.get_token_id(
+            reccord["slp_type"], reccord["sy"], contract["height"],
+            contract["txid"]
+        )
+        # get all metadata
+        metadata = b""
+        for document in dbapi.db.slp2.find({"tokenId": tokenId}):
+            metadata += document["metadata"]
+
+        check = [
+            # add new contract
+            dbapi.db.contracts.insert_one(
+                dict(
+                    tokenId=new_tokenId, height=contract["height"],
+                    index=contract["index"], type=slp.SLP2,
+                    name=reccord["na"], symbol=reccord["sy"],
+                    owner=contract["emitter"], document=reccord["du"],
+                    notes=reccord.get("no", None), paused=False
+                )
+            ),
+            # add new owner wallet with the whome metadata
+            dbapi.db.slp2.insert_one(
+                dict(
+                    address=contract["emitter"], tokenId=new_tokenId,
+                    blockStamp=f"{contract['height']}#{contract['index']}",
+                    owner=True, metadata=metadata
+                )
+            )
+        ]
+        # set contract as legit if no errors (insert_one returns False if
+        # element already exists in database)
+        return dbapi.set_legit(contract, check.count(False) == 0)
