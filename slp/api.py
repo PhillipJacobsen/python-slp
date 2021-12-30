@@ -11,9 +11,9 @@ import traceback
 from usrv import srv
 from slp import dbapi, serde
 
-SEARCH_FIELDS = "address,tokenId,blockStamp,owner,frozen,"
-"slp_type,emitter,receiver,legit,tp,sy,id,pa,mi,"
-"height,index,type,paused,symbol".split(",")
+SEARCH_FIELDS = "address,tokenId,blockStamp,owner,frozen," \
+    "slp_type,emitter,receiver,legit,tp,sy,id,pa,mi," \
+    "height,index,type,paused,symbol".split(",")
 
 DECIMAL128_FIELDS = "balance,minted,burned,exited,globalSupply".split(",")
 
