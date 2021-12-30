@@ -112,7 +112,7 @@ class SlpApp(srv.MicroJsonApp):
         signal.signal(signal.SIGTERM, SlpApp.kill)
 
     @staticmethod
-    def kill():
+    def kill(*args, **kwargs):
         sync.Processor.stop()
         node.Broadcaster.stop()
         msg.Messenger.stop()
