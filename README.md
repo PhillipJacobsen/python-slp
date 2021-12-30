@@ -72,7 +72,7 @@ curl http://127.0.0.1:5001/slp2/find?tokenId=0c1b5ed5cff799a0dee2cadc6d02ac60
 
 # Releases
 
-## 0.3.1 - Aquila
+## 0.3.2 - Aquila
   - [x] `ubuntu` install script
   - [x] blockchain syncer
   - [x] full SLP1 contract execution
