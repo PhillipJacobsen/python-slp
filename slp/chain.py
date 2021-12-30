@@ -316,10 +316,9 @@ class BlockParser(threading.Thread):
             block = BlockParser.JOB.get()
             if block is not None:
                 BlockParser.LOCK.acquire()
-                # diff between api data and webhook data
-                block["transactions"] = block.get(
-                    "numberOfTransactions", block["transactions"]
-                )
+                # homogenize diff between api data and webhook data
+                if "numberOfTransactions" in block:
+                    block["transactions"] = block["numberOfTransactions"]
                 slp.LOG.info(
                     "Parsing %d transaction(s) from block %s",
                     block["transactions"], block["height"]
