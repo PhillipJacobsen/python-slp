@@ -355,15 +355,15 @@ def apply_clone(contract, **options):
     try:
         # CLONE contract have to be sent to master address
         assert contract["receiver"] == slp.JSON["master address"]
+        # get tokenId genesis reccord from journal
+        reccord = dbapi.find_reccord(tp="GENESIS", id=contract["id"])
+        assert reccord is not None
         # TOKEN check ---
         _token_check(tokenId)
         # EMITTER check ---
-        _emitter_ownership_check(contract["emitter"], tokenId, blockstamp)
-        # get tokenId genesis reccord from journal
-        reccord = dbapi.db.journal.find_one(
-            {"tp": "GENESIS", "id": contract["id"]}
+        emitter = _emitter_ownership_check(
+            contract["emitter"], tokenId, blockstamp
         )
-        assert reccord is not None
         if options.get("assert_only", False):
             return True
     except Exception:
@@ -388,14 +388,14 @@ def apply_clone(contract, **options):
                     tokenId=new_tokenId, height=contract["height"],
                     index=contract["index"], type=slp.SLP2,
                     name=reccord["na"], symbol=reccord["sy"],
-                    owner=contract["emitter"], document=reccord["du"],
+                    owner=emitter["address"], document=reccord["du"],
                     notes=reccord.get("no", None), paused=False
                 )
             ),
             # add new owner wallet with the whome metadata
             dbapi.db.slp2.insert_one(
                 dict(
-                    address=contract["emitter"], tokenId=new_tokenId,
+                    address=emitter["address"], tokenId=new_tokenId,
                     blockStamp=f"{contract['height']}#{contract['index']}",
                     owner=True, metadata=metadata
                 )
