@@ -66,10 +66,7 @@ class Processor(threading.Thread):
 
                 if blocks.get("status", False) == 200:
                     mark = {"peer": peer}
-
-                    if blocks.get("meta", {}).get("next", False) is None:
-                        slp.LOG.info("End of block pages reached")
-                        Processor.stop()
+                    next_page = blocks.get("meta", {}).get("next", False)
 
                     blocks = [
                         b for b in blocks.get("data", [])
@@ -88,7 +85,11 @@ class Processor(threading.Thread):
                             slp.dumpJson(mark, markname, markfolder)
                             last_parsed = block["height"]
 
-                    page += 1
+                    if next_page is None:
+                        slp.LOG.info("End of block pages reached")
+                        Processor.stop()
+                    else:
+                        page += 1
 
                 else:
                     slp.LOG.info("No block from %s", peer)
