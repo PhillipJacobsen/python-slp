@@ -6,6 +6,7 @@ import re
 import json
 import socket
 import logging
+import hashlib
 
 DECIMAL128 = {}
 INPUT_TYPES = {}
@@ -83,3 +84,11 @@ def dumpJson(data, name, folder=None):
         pass
     with io.open(filename, "w", encoding="utf-8") as out:
         json.dump(data, out, indent=4)
+
+
+def get_token_id(slp_type, symbol, blockheight, txid):
+    """
+    Generate token id.
+    """
+    raw = "%s.%s.%s.%s" % (slp_type.upper(), symbol, blockheight, txid)
+    return hashlib.md5(raw.encode("utf-8")).hexdigest()

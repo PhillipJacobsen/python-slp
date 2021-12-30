@@ -71,14 +71,6 @@ def select_peers():
         return peers
 
 
-def get_token_id(slp_type, symbol, blockheight, txid):
-    """
-    Generate token id.
-    """
-    raw = "%s.%s.%s.%s" % (slp_type.upper(), symbol, blockheight, txid)
-    return hashlib.md5(raw.encode("utf-8")).hexdigest()
-
-
 def subscribed():
     # TODO: test webhook instead of file checking ?
     return os.path.exists(
@@ -269,7 +261,7 @@ def parse_block(block, peer=None):
                 )
                 # compute token id for GENESIS contracts
                 if fields["tp"] == "GENESIS":
-                    fields.update(id=get_token_id(
+                    fields.update(id=slp.get_token_id(
                         slp_type, fields["sy"], block["height"], tx["id"]
                     ))
                 # add wallet informations and cost
