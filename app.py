@@ -13,7 +13,7 @@ import logging.handlers
 from usrv import srv, req
 from pymongo import MongoClient
 from bson.decimal128 import Decimal128
-from slp import sync, node, msg, api, dbapi
+from slp import sync, node, msg, dbapi
 
 
 def init(name):
@@ -60,7 +60,7 @@ def init(name):
             lambda v, de=reccord.get('de', 0): Decimal128(f"%.{de}f" % v)
 
 
-def deploy(host="127.0.0.1", port=5000, blockchain="ark"):
+def deploy(host="127.0.0.1", port=5100, blockchain="ark"):
     """
     Deploy slp node on ubuntu as system daemon.
     """
@@ -100,13 +100,13 @@ WantedBy=multi-user.target
 
 class SlpApp(srv.MicroJsonApp):
 
-    def __init__(self, host="127.0.0.1", port=5000, **options):
+    def __init__(self, host="127.0.0.1", port=5100, **options):
         slp.PORT = port
         init(options.get("blockchain", "ark"))
         srv.MicroJsonApp.__init__(
             self, host, port, loglevel=options.get("loglevel", 20)
         )
-        sync.Processor()
+        sync.Processor()  # --> will start a BlockParser
         node.Broadcaster()
         msg.Messenger()
         signal.signal(signal.SIGTERM, SlpApp.kill)
