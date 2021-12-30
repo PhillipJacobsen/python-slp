@@ -3,7 +3,7 @@
 """
 `chain` module is designed to manage webhook subscription with blockchain and
 process validated blocks. Idea here is to extract SLP smartbridge transactions
-and embed it in a Mongo DB document.
+and store it as a Mongo DB document.
 
 Document structure:
 
@@ -11,7 +11,7 @@ name|description|type
 -|-|-
 height|transaction block height|unsigned long long
 index|transaction index in block|short
-txid|transaction id|hexidecimal
+txid|transaction id|hexadecimal
 slp_type|SLP contract type|string
 emitter|sender wallet address|base58
 receiver|receiver wallet address|base58
@@ -20,7 +20,7 @@ tx|blockchain transaction id|hexadecimal
 tp|type of action|string
 id|token ID|hexidecimal
 de|decimal places|short: 0..8
-qt|quantity|unsigned long long
+qt|quantity|float
 sy|symbol / ticker|string
 na|token name|string
 du|document URI|string (`ipfs://` scheme)
@@ -43,18 +43,21 @@ import importlib
 import traceback
 import threading
 
-from slp import loadJson, serde, dbapi
+from slp import serde, dbapi
 from usrv import req
 
 
 def select_peers():
     peers = []
     try:
+        # here candadates is at least [slp.JSON["api peer"]], so if default api
+        # peer does not respond, it should loop until api peer is back
         candidates = req.GET.api.peers(
             peer=slp.JSON["api peer"], orderBy="height:desc",
             headers=slp.HEADERS
         ).get("data", [slp.JSON["api peer"]])
     except Exception:
+        # in case of any HTTP error set peers to [slp.JSON["api peer"]]
         slp.LOG.error("Can not fetch peers from %s", slp.JSON["api peer"])
         peers = [slp.JSON["api peer"]]
     else:
@@ -77,6 +80,7 @@ def get_token_id(slp_type, symbol, blockheight, txid):
 
 
 def subscribed():
+    # TODO: test webhook instead of file checking ?
     return os.path.exists(
         os.path.join(slp.ROOT, ".json", f"{slp.JSON['database name']}.wbh")
     )
@@ -86,16 +90,19 @@ def subscribe():
     """
     Webhook subscription management.
     """
-
     if subscribed():
         slp.LOG.info("Already subscribed to %s", slp.JSON["webhook peer"])
         return False
 
+    # if webhook peer is local (ie, python-slp installed on a blockchain node)
+    # use 127.0.0.1:{slp.PORT}, else use slp.PUBLIC_IP
     if slp.JSON["webhook peer"][:11] in ["http://loca", "http://127."]:
         ip = "127.0.0.1"
     else:
         ip = slp.PUBLIC_IP
 
+    # blockchain subscription api use, only for applied blocks with at least
+    # one transaction (numberOfTransactions >= 1)
     data = req.POST.api.webhooks(
         peer=slp.JSON["webhook peer"],
         target=f"http://{ip}:{slp.PORT}/blocks",
@@ -106,7 +113,9 @@ def subscribe():
     ).get("data", {})
 
     if data != {}:
+        # manage security token
         data["key"] = dump_webhook_token(data.pop("token"))
+        # dump webhook data
         slp.dumpJson(
             data, f"{slp.JSON['database name']}.wbh",
             os.path.join(slp.ROOT, ".json")
@@ -123,11 +132,13 @@ def unsubscribe():
     Webhook subscription management.
     """
     webhook = f"{slp.JSON['database name']}.wbh"
-    data = loadJson(webhook, os.path.join(slp.ROOT, ".json"))
-    if data:
+    # slp.loadJson returns {} if file not found
+    data = slp.loadJson(webhook, os.path.join(slp.ROOT, ".json"))
+    if data != {}:
         resp = req.DELETE.api.webhooks(
             data["id"], peer=slp.JSON["webhook peer"]
         )
+        # if status < 300 --> success and remove webhook files
         if resp.get("status", 300) < 300:
             os.remove(data["key"])
             os.remove(os.path.join(slp.ROOT, ".json", webhook))
@@ -181,7 +192,6 @@ def check_webhook_token(authorization):
         ).hexdigest() == data["hash"]
 
 
-# TODO: make it robust if any timeout occur ?
 def get_block_transactions(blockId, peer=None):
     data, page, result = [None], 1, []
     peer = peer or slp.JSON["api peer"]
@@ -203,7 +213,7 @@ def read_vendorField(vendorField):
             contract = serde.unpack_slp(vendorField)
         except Exception:
             pass
-    return False if not isinstance(contract, dict) else contract
+    return False or contract
 
 
 def manage_block(**request):
@@ -218,7 +228,7 @@ def manage_block(**request):
             request.get("headers", {})
         )
         return False
-    # get block header
+    # get block data
     body = request.get("data", {})
     block = body.get("data", {})
     slp.LOG.info("Genuine block header received:\n%s", block)
@@ -236,7 +246,7 @@ def parse_block(block, peer=None):
     # get transactions from block
     tx_list = get_block_transactions(block["id"], peer)
     # because at some point, peer could return nothing good, check the
-    # transaction count
+    # transaction count, AssertionError will be managed by BlockParser
     try:
         assert len(tx_list) == int(block["transactions"])
     except AssertionError:
@@ -283,6 +293,8 @@ def parse_block(block, peer=None):
                 )
                 slp.LOG.error("%r\n%s", error, traceback.format_exc())
             else:
+                # because dbapi.add_reccord could return False or None if
+                # reccord impossible do store in database
                 if contract not in [None, False]:
                     contracts.append(contract)
     return contracts
@@ -316,7 +328,8 @@ class BlockParser(threading.Thread):
             block = BlockParser.JOB.get()
             if block is not None:
                 BlockParser.LOCK.acquire()
-                # homogenize diff between api data and webhook data
+                # homogenize diff between api data and webhook data because
+                # both are pushing blocks to BlockParser JOB
                 if "numberOfTransactions" in block:
                     block["transactions"] = block["numberOfTransactions"]
                 slp.LOG.info(
