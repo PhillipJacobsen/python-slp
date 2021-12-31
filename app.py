@@ -60,7 +60,7 @@ def init(name):
             lambda v, de=reccord.get('de', 0): Decimal128(f"%.{de}f" % v)
 
 
-def deploy(host="127.0.0.1", port=5100, blockchain="ark"):
+def deploy(host="127.0.0.1", port=5200, blockchain="ark"):
     """
     Deploy slp node on ubuntu as system daemon.
     """
@@ -100,7 +100,7 @@ WantedBy=multi-user.target
 
 class SlpApp(srv.MicroJsonApp):
 
-    def __init__(self, host="127.0.0.1", port=5100, **options):
+    def __init__(self, host="127.0.0.1", port=5200, **options):
         slp.PORT = port
         init(options.get("blockchain", "ark"))
         srv.MicroJsonApp.__init__(
