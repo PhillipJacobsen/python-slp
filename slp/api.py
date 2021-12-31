@@ -93,7 +93,7 @@ def find(collection, **kw):
         return {"status": 501, "msg": "Internal Error: %r" % error}
 
 
-def deploy(host="127.0.0.1", port=5200, blockchain="ark"):
+def deploy(host="127.0.0.1", port=5100, blockchain="ark"):
     """
     Deploy API on ubuntu as system daemon.
     """
@@ -137,6 +137,9 @@ class SlpApi(srv.MicroJsonApp):
 
         name = options.get("blockchain", "ark")
         level = options.get("loglevel", 20)
+
+        # clear logging handlers
+        slp.LOG.handlers.clear()
 
         data = slp.loadJson(f"{name}.json")
         if len(data) == 0:
