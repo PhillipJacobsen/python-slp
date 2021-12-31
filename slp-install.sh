@@ -72,4 +72,10 @@ pip install -r requirements.txt -q
 echo "done"
 
 echo
+echo deploying node and api
+echo ======================
+python -c "import app;app.deploy(host='127.0.0.1', port=5200, blockchain='ark')"
+python -c "from slp import api;api.deploy(host='127.0.0.1', port=5100, blockchain='ark')"
+
+echo
 echo "setup finished"
