@@ -1,7 +1,7 @@
 # -*- coding:utf-8 -*-
 
 """
-Provide database REST interface.
+Mongo database REST interface.
 """
 
 import os
@@ -43,7 +43,7 @@ def find(collection, **kw):
             if f in DECIMAL128_FIELDS and ":" in v
         ]:
             op, value = value.split(":")
-            expr["$%s" % op] = [{"$toDouble": "$%s" % field}, float(value)]
+            expr[f"${op}"] = [{"$toDouble": f"${field}"}, float(value)]
         if expr != {}:
             filters["$expr"] = expr
 
@@ -69,7 +69,7 @@ def find(collection, **kw):
         if orderBy is not None:
             cursor = cursor.sort(
                 tuple(
-                    [field, -1 if order in "desc,Desc,DESC".split(",") else 1]
+                    [field, -1 if order.lower() in ["desc", "reversed"] else 1]
                     for field, order in [
                         (order_by + (":" if ":" not in order_by else ""))
                         .split(":") for order_by in orderBy.split(",")
