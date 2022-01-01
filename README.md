@@ -25,12 +25,12 @@ sudo systemctl enable slp.service
 
 ## Settings
 
-  * [x] webhook have to be enabled on `Ark` relay
+  * [x] webhook has to be enabled on `Ark` relay
   * [x] set `webhook peer` in `ark.json` file
 
 **if `python-slp` is running on a standalone node**
 
-  * [x] node ip where `python-slp` is installed have to be whitelisted by the `Ark` relay
+  * [x] node ip where `python-slp` is installed has to be whitelisted by the `Ark` relay
 
 ## Custom deployment
 
