@@ -56,7 +56,9 @@ python -c "import app;app.init('name');app.sync.chain.unsubscribe()"
 
 An endpoint is available to get data from mongo database with the pattern:
 
-`/<table_name>/find[?field=value&..][&decimal128Field=op:value&..][&orderBy=field1:direction1,field2:direction2,..][&page=number]`
+```
+/<table_name>/find[?field=value&..][&decimal128Field=op:value&..][&orderBy=field1:direction1,field2:direction2,..][&page=number]
+```
 
 Where:
   - op is one of `eq`, `neg`, `gt`, `gte`, `lt`, `lte`
