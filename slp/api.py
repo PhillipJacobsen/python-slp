@@ -5,6 +5,7 @@ Provide database REST interface.
 """
 
 import os
+import re
 import sys
 import slp
 import math
@@ -15,11 +16,10 @@ from usrv import srv
 from slp import dbapi, serde
 from pymongo import MongoClient
 
-SEARCH_FIELDS = "address,tokenId,blockStamp,owner,frozen," \
-    "slp_type,emitter,receiver,legit,tp,sy,id,pa,mi," \
-    "height,index,type,paused,symbol".split(",")
-
 DECIMAL128_FIELDS = "balance,minted,burned,exited,globalSupply".split(",")
+SEARCH_FIELDS = "address,tokenId,blockStamp,owner,frozen," \
+                "slp_type,emitter,receiver,legit,tp,sy,id,pa,mi," \
+                "height,index,type,paused,symbol".split(",")
 
 
 @srv.bind("/<str:collection>/find", methods=["GET"])
@@ -34,22 +34,35 @@ def find(collection, **kw):
 
         # filter kw so that only database specified keys can be search on.
         # it also gets rid of request environ (headers, environ, data...)
-        kw = dict([k, v] for k, v in kw.items() if k in SEARCH_FIELDS)
+        filters = dict([k, v] for k, v in kw.items() if k in SEARCH_FIELDS)
+
+        # build decima128 field filters
+        expr = {}
+        for field, value in [
+            (f, v) for f, v in kw.items()
+            if f in DECIMAL128_FIELDS and ":" in v
+        ]:
+            op, value = value.split(":")
+            expr["$%s" % op] = [{"$toDouble": "$%s" % field}, float(value)]
+        if expr != {}:
+            filters["$expr"] = expr
 
         # convert bool values
         for key in [
-            k for k in ["owner", "frozen", "paused", "pa", "mi"] if k in kw
+            k for k in ["owner", "frozen", "paused", "pa", "mi"]
+            if k in filters
         ]:
-            kw[key] = True if kw[key].lower() in ['1', 'true'] else False
+            filters[key] = True if filters[key].lower() in ['1', 'true'] \
+                else False
 
         # convert integer values
-        for key in [k for k in ["height", "index"] if k in kw]:
-            kw[key] = int(kw[key])
+        for key in [k for k in ["height", "index"] if k in filters]:
+            filters[key] = int(filters[key])
 
         # computes count and execute first filter
-        total = col.count_documents(kw)
+        total = col.count_documents(filters)
         pages = int(math.ceil(total / 100.))
-        cursor = col.find(kw)
+        cursor = col.find(filters)
 
         # apply ordering
         if orderBy is not None:
