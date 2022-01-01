@@ -23,6 +23,15 @@ sudo systemctl enable mongod.service
 sudo systemctl enable slp.service
 ```
 
+## Settings
+
+  * [x] webhook have to be enabled on `Ark` relay
+  * [x] set `webhook peer` in `ark.json` file
+
+**if `python-slp` is running on a standalone node**
+
+  * [x] node ip where `python-slp` is installed have to be whitelisted by the `Ark` relay
+
 ## Custom deployment
 
 `python-slp` is configured for `Ark` blockchain on port 5200 and 5100. To deploy node and api with a specific `Ark-fork`, copy `ark.json` to `name.json` in package directory where `name` is the name of the targeted blockchain. Then edit created json file accordingly and deploy:
