@@ -5,7 +5,6 @@ Provide database REST interface.
 """
 
 import os
-import re
 import sys
 import slp
 import math
@@ -36,7 +35,8 @@ def find(collection, **kw):
         # it also gets rid of request environ (headers, environ, data...)
         filters = dict([k, v] for k, v in kw.items() if k in SEARCH_FIELDS)
 
-        # build decima128 field filters
+        # build decima128 field filters so request with ==, >, >=, <, <=
+        # operator can be used
         expr = {}
         for field, value in [
             (f, v) for f, v in kw.items()
