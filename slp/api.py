@@ -49,11 +49,12 @@ def find(collection, **kw):
 
         # convert bool values
         for key in [
-            k for k in ["owner", "frozen", "paused", "pa", "mi"]
+            k for k in ["owner", "frozen", "paused", "legit", "pa", "mi"]
             if k in filters
         ]:
             filters[key] = True if filters[key].lower() in ['1', 'true'] \
-                else False
+                else False if filters[key].lower() in ['0', 'false'] \
+                else None
 
         # convert integer values
         for key in [k for k in ["height", "index"] if k in filters]:
@@ -68,9 +69,10 @@ def find(collection, **kw):
         if orderBy is not None:
             cursor = cursor.sort(
                 tuple(
-                    [field, -1 if order in "desc,Desc,DESC" else 1]
+                    [field, -1 if order in "desc,Desc,DESC".split(",") else 1]
                     for field, order in [
-                        order_by.split(":") for order_by in orderBy.split(",")
+                        (order_by + (":" if ":" not in order_by else ""))
+                        .split(":") for order_by in orderBy.split(",")
                     ]
                 )
             )
