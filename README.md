@@ -37,27 +37,38 @@ sudo systemctl enable slp.service
 `python-slp` is configured for `Ark` blockchain on port 5200 and 5100. To deploy node and api with a specific `Ark-fork`, copy `ark.json` to `name.json` in package directory where `name` is the name of the targeted blockchain. Then edit created json file accordingly and deploy:
 
 ```sh
-. ~/.local/share/slp/venv/bin/activate
-cd ~/python-slp
 python -c "import app;app.deploy(host='127.0.0.1', port=5243, blockchain='name')"
-python -c "from slp import api;api.deploy(host='127.0.0.1', port=5124, blockchain='name')"
+python -c "import slp.api;slp.api.deploy(host='127.0.0.1', port=5124, blockchain='name')"
 ```
 
 Where `name` is the basename of json configuration used to store specific blockchain parameters.
+
+## Webhook management
+
+Webhook subsciption is done on `python-slp` launch. It can also be created/removed with:
+
+```sh
+python -c "import app;app.init('ark');app.sync.chain.subscribe()"
+python -c "import app;app.init('name');app.sync.chain.unsubscribe()"
+```
 
 ## API endpoint for slp database
 
 An endpoint is available to get data from mongo database with the pattern:
 
-`/<table_name>/find?[field=value&..][&orderBy=field1:direction1,field2:direction2,..][&page=number]`
+`/<table_name>/find[?field=value&..][&decimal128Field=op:value&..][&orderBy=field1:direction1,field2:direction2,..][&page=number]`
 
-table name|searchable fields
--|-
-slp1|`address`, `tokenId`, `blockStamp`, `owner`, `frozen`
+Where:
+  - op is one of `eq`, `neg`, `gt`, `gte`, `lt`, `lte`
+  - direction `desc` or `reversed` (default is `asc`)
+
+table name|fields|decimal128 field
+-|-|-
+slp1|`address`, `tokenId`, `blockStamp`, `owner`, `frozen`|`balance`
 slp2|`address`, `tokenId`, `blockStamp`, `owner`, `frozen`
 journal|`slp_type`, `emitter`, `receiver`, `legit`, `tp`, `sy`, `id`, `pa`, `mi`
-contracts|`tokenId`, `height`, `index`, `type`, `owner`, `paused`, `symbol`
-rejected|`tokenId`, `height`, `index`, `type`, `owner`, `paused`, `symbol`
+contracts|`tokenId`, `height`, `index`, `type`, `owner`, `paused`, `symbol`|`minted`, `burned`, `exited`, `globalSupply`
+rejected|`tokenId`, `height`, `index`, `type`, `owner`, `paused`, `symbol`|`minted`, `burned`, `exited`, `globalSupply`
 
 ```bash
 curl http://127.0.0.1:5100/slp2/find?tokenId=0c1b5ed5cff799a0dee2cadc6d02ac60
