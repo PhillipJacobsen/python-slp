@@ -57,18 +57,18 @@ python -c "import app;app.init('name');app.sync.chain.unsubscribe()"
 An endpoint is available to get data from mongo database with the pattern:
 
 ```
-/<table_name>/find[?field=value&..][&decimal128Field=op:value&..][&orderBy=field1:direction1,field2:direction2,..][&page=number]
+/<table_name>/find[?field=value&..][&operator_field=op:value&..][&orderBy=field_i:direction_i,..][&page=number]
 ```
 
 Where:
   - op is one of `eq`, `neg`, `gt`, `gte`, `lt`, `lte`
   - direction `desc` or `reversed` (default is `asc`)
 
-table name|fields|decimal128 field
+table name|fields|operator fields
 -|-|-
 slp1|`address`, `tokenId`, `blockStamp`, `owner`, `frozen`|`balance`
 slp2|`address`, `tokenId`, `blockStamp`, `owner`, `frozen`
-journal|`slp_type`, `emitter`, `receiver`, `legit`, `tp`, `sy`, `id`, `pa`, `mi`
+journal|`slp_type`, `emitter`, `receiver`, `legit`, `tp`, `sy`, `id`, `pa`, `mi`|`qt`
 contracts|`tokenId`, `height`, `index`, `type`, `owner`, `paused`, `symbol`|`minted`, `burned`, `exited`, `globalSupply`
 rejected|`tokenId`, `height`, `index`, `type`, `owner`, `paused`, `symbol`|`minted`, `burned`, `exited`, `globalSupply`
 
