@@ -16,6 +16,7 @@ from slp import dbapi, serde
 from pymongo import MongoClient
 
 DECIMAL128_FIELDS = "balance,minted,burned,exited,globalSupply".split(",")
+OPERATOR_FIELDS = "balance,minted,burned,exited,globalSupply,qt".split(",")
 SEARCH_FIELDS = "address,tokenId,blockStamp,owner,frozen," \
                 "slp_type,emitter,receiver,legit,tp,sy,id,pa,mi," \
                 "height,index,type,paused,symbol".split(",")
@@ -40,7 +41,7 @@ def find(collection, **kw):
         expr = {}
         for field, value in [
             (f, v) for f, v in kw.items()
-            if f in DECIMAL128_FIELDS and ":" in v
+            if f in OPERATOR_FIELDS and ":" in v
         ]:
             op, value = value.split(":")
             expr[f"${op}"] = [{"$toDouble": f"${field}"}, float(value)]
