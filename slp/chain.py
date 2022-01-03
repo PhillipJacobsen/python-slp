@@ -279,11 +279,11 @@ def parse_block(block, peer=None):
                     block["height"], index, tx["id"], slp_type, **fields
                 )
             except Exception as error:
-                slp.LOG.info(
+                slp.LOG.error(
                     "Error occured with tx %s in block %d",
                     tx["id"], block["height"]
                 )
-                slp.LOG.error("%r\n%s", error, traceback.format_exc())
+                slp.LOG.debug("%r\n%s", error, traceback.format_exc())
             else:
                 # because dbapi.add_reccord could return False or None if
                 # reccord impossible do store in database
