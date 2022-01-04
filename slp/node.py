@@ -10,7 +10,7 @@ from usrv import req
 #: place to sort discovered peers
 PEERS = set([])
 #: peer limit to avoid auto DDOS on peer prospection
-PEER_LIMIT = slp.JSON.get("peer limit", 10)
+PEER_LIMIT = 10
 
 
 def broadcast(endpoint, msg, *peers):

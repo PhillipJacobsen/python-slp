@@ -58,6 +58,8 @@ def init(name):
     ):
         slp.DECIMAL128[reccord["id"]] = \
             lambda v, de=reccord.get('de', 0): Decimal128(f"%.{de}f" % v)
+    # update peer limit in node module
+    node.PEER_LIMIT = slp.JSON.get("peer limit", 10)
 
 
 def deploy(host="127.0.0.1", port=5200, blockchain="ark"):
